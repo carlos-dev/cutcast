@@ -15,6 +15,7 @@
     "@fastify/multipart": "^8.3.0",
     "@fastify/swagger": "^8.15.0",
     "@fastify/swagger-ui": "^2.1.0",
+    "dotenv": "^17.2.3",
     "fastify": "^4.28.1",
     "uuid": "^10.0.0"
   },

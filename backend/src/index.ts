@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import Fastify from 'fastify';
 import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
@@ -125,6 +126,35 @@ fastify.register(async function routes(fastify) {
 
     // Salva o job em memória
     jobs.set(jobId, job);
+
+    // Envia requisição para o webhook do n8n
+    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
+    
+    if (n8nWebhookUrl) {
+      try {
+        const response = await fetch(n8nWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            videoUrl: body.videoUrl
+          })
+        });
+
+        
+        if (!response.ok) {
+          fastify.log.warn(`Webhook n8n retornou status ${response.status}`);
+        } else {
+          fastify.log.info(`Webhook n8n chamado com sucesso para job ${jobId}`);
+        }
+      } catch (error) {
+        // Log do erro mas não falha a requisição
+        fastify.log.error(`Erro ao chamar webhook n8n: ${error}`);
+      }
+    } else {
+      fastify.log.warn('N8N_WEBHOOK_URL não configurada no .env');
+    }
 
     // Retorna os dados do job criado
     return reply.code(201).send({
