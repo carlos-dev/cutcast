@@ -50,17 +50,16 @@ fastify.register(async function routes(fastify) {
   fastify.post('/videos', {
   schema: {
     tags: ['videos'],
-    summary: 'Upload de vídeo',
-    description: 'Faz upload de um vídeo e cria um job de processamento',
-    consumes: ['multipart/form-data'],
+    summary: 'Criar job de processamento de vídeo',
+    description: 'Cria um job de processamento de vídeo a partir de uma URL. Envie um JSON com o campo "videoUrl".',
     body: {
       type: 'object',
-      required: ['file'],
+      required: ['videoUrl'],
       properties: {
-        file: {
+        videoUrl: {
           type: 'string',
-          format: 'binary',
-          description: 'Arquivo de vídeo (mp4, mov, etc.)'
+          format: 'uri',
+          description: 'URL do vídeo a ser processado'
         }
       }
     },
@@ -91,31 +90,41 @@ fastify.register(async function routes(fastify) {
   }
 }, async (request, reply) => {
   try {
-    // Recebe o arquivo enviado via multipart/form-data
-    const data = await request.file();
-
-    if (!data) {
+    // Recebe o body com videoUrl
+    const body = request.body as { videoUrl?: string };
+    
+    if (!body || !body.videoUrl) {
       return reply.code(400).send({
-        error: 'Nenhum arquivo enviado'
+        error: 'O campo videoUrl é obrigatório'
+      });
+    }
+
+    // Valida se é uma URL válida
+    try {
+      new URL(body.videoUrl);
+    } catch {
+      return reply.code(400).send({
+        error: 'videoUrl deve ser uma URL válida'
       });
     }
 
     // Gera um ID único para o job
     const jobId = uuidv4();
 
+    // Extrai o nome do arquivo da URL ou usa um nome padrão
+    const urlPath = new URL(body.videoUrl).pathname;
+    const filename = urlPath.split('/').pop() || 'video';
+
     // Cria o objeto do job com status UPLOADED
     const job: VideoJob = {
       id: jobId,
       status: 'UPLOADED',
-      originalFilename: data.filename,
+      originalFilename: filename,
       createdAt: new Date()
     };
 
     // Salva o job em memória
     jobs.set(jobId, job);
-
-    // Descarta o conteúdo do arquivo (não estamos salvando ainda)
-    await data.file.resume();
 
     // Retorna os dados do job criado
     return reply.code(201).send({
@@ -124,15 +133,15 @@ fastify.register(async function routes(fastify) {
     });
 
   } catch (error) {
-    fastify.log.error(error);
+    fastify.log.error(error as Error);
     return reply.code(500).send({
-      error: 'Erro ao processar upload'
+      error: 'Erro ao processar requisição'
     });
   }
 });
 
-// Endpoint GET /videos/:id para consultar status (útil para debug)
-fastify.get('/videos/:id', {
+  // Endpoint GET /videos/:id para consultar status (útil para debug)
+  fastify.get('/videos/:id', {
   schema: {
     tags: ['videos'],
     summary: 'Consultar status do job',
@@ -189,7 +198,7 @@ fastify.get('/videos/:id', {
     originalFilename: job.originalFilename,
     createdAt: job.createdAt
   });
-  });
+});
 });
 
 // Inicia o servidor
@@ -200,9 +209,13 @@ const start = async () => {
     console.log('🚀 Servidor rodando em http://localhost:3000');
     console.log('📚 Documentação Swagger em http://localhost:3000/docs');
   } catch (err) {
+    console.error('❌ Erro ao iniciar servidor:', err);
     fastify.log.error(err);
     process.exit(1);
   }
 };
 
-start();
+start().catch((err) => {
+  console.error('❌ Erro fatal:', err);
+  process.exit(1);
+});
