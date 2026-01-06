@@ -98,7 +98,8 @@ export async function videosRoutes(
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              videoUrl: body.videoUrl
+              videoUrl: body.videoUrl,
+              jobId
             })
           });
 

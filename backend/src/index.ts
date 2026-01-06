@@ -24,7 +24,8 @@ fastify.register(swagger, {
       }
     ],
     tags: [
-      { name: 'videos', description: 'Endpoints relacionados ao processamento de vídeos' }
+      { name: 'videos', description: 'Endpoints relacionados ao processamento de vídeos' },
+      { name: 'callbacks', description: 'Endpoints relacionados a callbacks do webhook n8n' }
     ]
   }
 });
@@ -50,9 +51,7 @@ fastify.addHook('onRequest', async (request, reply) => {
 });
 
 // Registra as rotas
-fastify.register(async function (fastify) {
-  await registerRoutes(fastify);
-});
+fastify.register(registerRoutes);
 
 // Inicia o servidor
 const start = async () => {

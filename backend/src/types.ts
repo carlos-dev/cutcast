@@ -8,3 +8,12 @@ export interface VideoJob {
   originalFilename: string;
   createdAt: Date;
 }
+
+// Estrutura de um callback recebido do n8n
+export interface JobCallback {
+  jobId: string;
+  status: 'completed' | 'error';
+  outputUrl?: string;
+  errorMessage?: string;
+  receivedAt: string;
+}
