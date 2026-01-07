@@ -4,31 +4,51 @@
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --radius: 0.5rem;
+    /* Background - Deep space with purple undertone */
+    --background: 260 40% 6%;
+    --foreground: 280 10% 95%;
+
+    /* Cards - Subtle purple-tinted dark */
+    --card: 260 30% 10%;
+    --card-foreground: 280 10% 95%;
+
+    /* Popover */
+    --popover: 260 35% 8%;
+    --popover-foreground: 280 10% 95%;
+
+    /* Primary - Vibrant purple/violet */
+    --primary: 270 100% 70%;
+    --primary-foreground: 280 10% 10%;
+
+    /* Secondary - Deep purple */
+    --secondary: 265 30% 18%;
+    --secondary-foreground: 280 10% 95%;
+
+    /* Muted - Softer purple-gray */
+    --muted: 260 20% 16%;
+    --muted-foreground: 260 10% 65%;
+
+    /* Accent - Electric cyan/blue */
+    --accent: 195 100% 60%;
+    --accent-foreground: 260 40% 10%;
+
+    /* Destructive - Vibrant red-pink */
+    --destructive: 350 90% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders - Subtle purple glow */
+    --border: 265 20% 22%;
+    --input: 265 25% 18%;
+    --ring: 270 100% 70%;
+
+    /* Charts - Colorful palette */
+    --chart-1: 270 100% 70%;
+    --chart-2: 195 100% 60%;
+    --chart-3: 160 80% 50%;
+    --chart-4: 45 100% 60%;
+    --chart-5: 320 90% 65%;
+
+    --radius: 0.75rem;
   }
 }
 
@@ -39,5 +59,27 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, hsl(270 100% 30% / 0.15), transparent),
+      radial-gradient(ellipse 60% 40% at 90% 120%, hsl(195 100% 40% / 0.1), transparent);
+  }
+}
+
+@layer utilities {
+  /* Glow effect para botões primários */
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(270 100% 70% / 0.3);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent;
+  }
+
+  /* Card com brilho sutil */
+  .card-glow {
+    box-shadow:
+      0 0 0 1px hsl(265 20% 22%),
+      0 0 20px -5px hsl(270 100% 70% / 0.2);
   }
 }

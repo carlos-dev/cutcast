@@ -100,7 +100,7 @@ export default function Home() {
         >
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
             Transforme seus vídeos em
-            <span className="bg-gradient-to-r from-primary to-primary/50 bg-clip-text text-transparent">
+            <span className="gradient-text">
               {" "}
               Clipes Virais
             </span>
@@ -121,7 +121,7 @@ export default function Home() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="max-w-3xl mx-auto"
         >
-          <Card className="p-6 backdrop-blur-sm bg-card/50 border-2">
+          <Card className="p-6 backdrop-blur-sm bg-card/80 border-2 card-glow">
             <Tabs defaultValue="url" className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="url" className="gap-2">
@@ -149,7 +149,7 @@ export default function Home() {
                   <Button
                     type="submit"
                     size="lg"
-                    className="w-full"
+                    className="w-full glow-primary transition-all hover:scale-[1.02]"
                     disabled={isLoading || !videoUrl.trim()}
                   >
                     {isLoading ? "Processando..." : "Gerar Cortes"}
@@ -164,7 +164,7 @@ export default function Home() {
                 />
                 <Button
                   size="lg"
-                  className="w-full"
+                  className="w-full glow-primary transition-all hover:scale-[1.02]"
                   onClick={handleFileSubmit}
                   disabled={isLoading || !selectedFile}
                 >

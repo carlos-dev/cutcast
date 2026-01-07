@@ -44,7 +44,7 @@ export function FileUpload({ onFileSelect, disabled }: FileUploadProps) {
       {...getRootProps()}
       className={cn(
         "relative cursor-pointer overflow-hidden border-2 border-dashed transition-all duration-300",
-        isDragActive && "border-primary bg-primary/5 scale-[1.02]",
+        isDragActive && "border-primary bg-primary/10 scale-[1.02] shadow-[0_0_30px_hsl(270,100%,70%/0.2)]",
         disabled && "cursor-not-allowed opacity-50",
         !selectedFile && "hover:border-primary/50 hover:bg-primary/5"
       )}

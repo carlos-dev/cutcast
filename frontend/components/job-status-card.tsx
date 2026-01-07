@@ -23,11 +23,11 @@ export function JobStatusCard({ job }: JobStatusCardProps) {
     switch (job.status) {
       case "PENDING":
       case "PROCESSING":
-        return <Loader2 className="h-6 w-6 animate-spin text-primary" />;
+        return <Loader2 className="h-6 w-6 animate-spin text-primary drop-shadow-[0_0_8px_hsl(270,100%,70%)]" />;
       case "DONE":
-        return <CheckCircle2 className="h-6 w-6 text-green-500" />;
+        return <CheckCircle2 className="h-6 w-6 text-accent drop-shadow-[0_0_8px_hsl(195,100%,60%)]" />;
       case "FAILED":
-        return <XCircle className="h-6 w-6 text-destructive" />;
+        return <XCircle className="h-6 w-6 text-destructive drop-shadow-[0_0_8px_hsl(350,90%,60%)]" />;
       default:
         return null;
     }
@@ -56,7 +56,7 @@ export function JobStatusCard({ job }: JobStatusCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Card className="border-2">
+      <Card className="border-2 card-glow">
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
             {getStatusIcon()}
@@ -95,7 +95,7 @@ export function JobStatusCard({ job }: JobStatusCardProps) {
 
         {job.status === "DONE" && job.outputUrl && (
           <CardFooter>
-            <Button asChild className="w-full" size="lg">
+            <Button asChild className="w-full glow-primary transition-all hover:scale-[1.02]" size="lg">
               <a href={job.outputUrl} download>
                 <Download className="mr-2 h-4 w-4" />
                 Baixar Vídeo
