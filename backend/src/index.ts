@@ -50,7 +50,12 @@ fastify.register(cors, {
 });
 
 // Registra o plugin de multipart para aceitar upload de arquivos
-fastify.register(multipart);
+fastify.register(multipart, {
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500MB (em bytes)
+    files: 1 // Apenas 1 arquivo por vez
+  }
+});
 
 // Hook para adicionar header que evita o aviso do ngrok
 fastify.addHook('onRequest', async (request) => {
