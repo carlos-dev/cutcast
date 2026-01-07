@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { videosRoutes } from './videos';
 import { callbacksRoutes } from './callbacks';
+import { jobsRoutes } from './jobs';
 
 export async function registerRoutes(fastify: FastifyInstance) {
   // Endpoint GET / para informações sobre a API
@@ -11,6 +12,7 @@ export async function registerRoutes(fastify: FastifyInstance) {
       endpoints: {
         'POST /videos': 'Criar job de processamento de vídeo',
         'GET /videos/:id': 'Consultar status do job',
+        'GET /jobs/:id': 'Consultar status do job (alternativo)',
         'POST /jobs/:job_id/callback': 'Receber callback do webhook n8n',
         'GET /docs': 'Documentação Swagger'
       },
@@ -20,6 +22,7 @@ export async function registerRoutes(fastify: FastifyInstance) {
 
   // Registra todas as rotas
   fastify.register(videosRoutes);
+  fastify.register(jobsRoutes);
   fastify.register(callbacksRoutes);
 }
 

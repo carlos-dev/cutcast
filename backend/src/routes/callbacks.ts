@@ -1,7 +1,6 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { JobCallback } from '../types';
-import { callbacks } from '../storage/callbacks';
-import { jobs } from '../storage/jobs';
+import { prisma } from '../lib/prisma';
 
 export async function callbacksRoutes(
   fastify: FastifyInstance,
@@ -80,9 +79,12 @@ export async function callbacksRoutes(
     try {
       const body = request.body as JobCallback;
       const jobId = body.jobId;
-      console.log('body', body);
+
       // Valida se o job existe
-      const job = jobs.get(jobId);
+      const job = await prisma.job.findUnique({
+        where: { id: jobId }
+      });
+
       if (!job) {
         return reply.code(404).send({
           error: 'Job não encontrado'
@@ -127,24 +129,36 @@ export async function callbacksRoutes(
         }
       }
 
-      // Cria o objeto de callback
-      const callback: JobCallback = {
-        jobId: jobId,
-        status: body.status,
-        outputUrl: body.outputUrl,
-        errorMessage: body.errorMessage,
-        receivedAt: new Date().toISOString()
+      // Salva o callback no banco de dados
+      await prisma.callback.create({
+        data: {
+          jobId: jobId,
+          status: body.status,
+          outputUrl: body.outputUrl,
+          errorMessage: body.errorMessage
+        }
+      });
+
+      // Atualiza o status do job no banco
+      const newStatus = body.status === 'completed' ? 'DONE' : 'FAILED';
+      const updateData: any = {
+        status: newStatus
       };
 
-      // Salva o callback em memória
-      callbacks.set(jobId, callback);
-
-      // Atualiza o status do job
-      if (body.status === 'completed') {
-        job.status = 'DONE';
-      } else if (body.status === 'error') {
-        job.status = 'FAILED';
+      // Se completado, salva a URL de saída
+      if (body.status === 'completed' && body.outputUrl) {
+        updateData.outputUrl = body.outputUrl;
       }
+
+      // Se erro, salva a mensagem de erro
+      if (body.status === 'error' && body.errorMessage) {
+        updateData.errorMessage = body.errorMessage;
+      }
+
+      await prisma.job.update({
+        where: { id: jobId },
+        data: updateData
+      });
 
       fastify.log.info(`Callback recebido para job ${jobId}: ${body.status}`);
 

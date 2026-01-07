@@ -1,7 +1,6 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
-import { VideoJob } from '../types';
-import { jobs } from '../storage/jobs';
+import { prisma, ensureSystemUser } from '../lib/prisma';
 
 export async function videosRoutes(
   fastify: FastifyInstance,
@@ -69,23 +68,21 @@ export async function videosRoutes(
         });
       }
 
+      // Garante que existe um usuário "system" no banco
+      const systemUser = await ensureSystemUser();
+
       // Gera um ID único para o job
       const jobId = uuidv4();
 
-      // Extrai o nome do arquivo da URL ou usa um nome padrão
-      const urlPath = new URL(body.videoUrl).pathname;
-      const filename = urlPath.split('/').pop() || 'video';
-
-      // Cria o objeto do job com status UPLOADED
-      const job: VideoJob = {
-        id: jobId,
-        status: 'UPLOADED',
-        originalFilename: filename,
-        createdAt: new Date()
-      };
-
-      // Salva o job em memória
-      jobs.set(jobId, job);
+      // Cria o job no banco de dados
+      const job = await prisma.job.create({
+        data: {
+          id: jobId,
+          userId: systemUser.id,
+          inputUrl: body.videoUrl,
+          status: 'PENDING'
+        }
+      });
 
       // Envia requisição para o webhook do n8n
       const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
@@ -158,8 +155,11 @@ export async function videosRoutes(
               enum: ['UPLOADED', 'PROCESSING', 'DONE', 'FAILED'],
               description: 'Status atual do job'
             },
-            originalFilename: { type: 'string', description: 'Nome original do arquivo' },
-            createdAt: { type: 'string', format: 'date-time', description: 'Data de criação' }
+            inputUrl: { type: 'string', format: 'uri', description: 'URL do vídeo original' },
+            outputUrl: { type: 'string', format: 'uri', description: 'URL do vídeo processado (se concluído)' },
+            errorMessage: { type: 'string', description: 'Mensagem de erro (se houver)' },
+            createdAt: { type: 'string', format: 'date-time', description: 'Data de criação' },
+            updatedAt: { type: 'string', format: 'date-time', description: 'Data de atualização' }
           }
         },
         404: {
@@ -174,7 +174,9 @@ export async function videosRoutes(
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    const job = jobs.get(id);
+    const job = await prisma.job.findUnique({
+      where: { id }
+    });
 
     if (!job) {
       return reply.code(404).send({
@@ -183,10 +185,13 @@ export async function videosRoutes(
     }
 
     return reply.send({
-      job_id: job.id,
+      jobId: job.id,
       status: job.status,
-      originalFilename: job.originalFilename,
-      createdAt: job.createdAt
+      inputUrl: job.inputUrl,
+      outputUrl: job.outputUrl,
+      errorMessage: job.errorMessage,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt
     });
   });
 }

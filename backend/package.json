@@ -4,10 +4,15 @@
   "description": "Backend MVP para geração de cortes verticais de vídeo",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "ts-node src/index.ts",
+    "dev:build": "tsc && node dist/index.js",
     "build": "tsc",
     "start": "node dist/index.js",
-    "ngrok": "ngrok http 3000 --request-header-add \"ngrok-skip-browser-warning:true\""
+    "ngrok": "ngrok http 3000 --request-header-add \"ngrok-skip-browser-warning:true\"",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "prisma:push": "prisma db push"
   },
   "keywords": [],
   "author": "",
@@ -16,13 +21,16 @@
     "@fastify/multipart": "^8.3.0",
     "@fastify/swagger": "^8.15.0",
     "@fastify/swagger-ui": "^2.1.0",
+    "@prisma/client": "^5.22.0",
     "dotenv": "^17.2.3",
     "fastify": "^4.28.1",
+    "prisma": "^5.22.0",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
+    "@types/node": "^22.19.3",
     "@types/uuid": "^10.0.0",
+    "ts-node": "^10.9.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
