@@ -23,6 +23,7 @@
     "@fastify/swagger": "^8.15.0",
     "@fastify/swagger-ui": "^2.1.0",
     "@prisma/client": "^5.22.0",
+    "@supabase/supabase-js": "^2.90.0",
     "dotenv": "^17.2.3",
     "fastify": "^4.28.1",
     "prisma": "^5.22.0",

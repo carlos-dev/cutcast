@@ -1,6 +1,8 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
 import { prisma, ensureSystemUser } from '../lib/prisma';
+import { supabase } from '../lib/supabase';
+import { MultipartFile } from '@fastify/multipart';
 
 export async function videosRoutes(
   fastify: FastifyInstance,
@@ -11,25 +13,16 @@ export async function videosRoutes(
     schema: {
       tags: ['videos'],
       summary: 'Criar job de processamento de vídeo',
-      description: 'Cria um job de processamento de vídeo a partir de uma URL. Envie um JSON com o campo "videoUrl".',
-      body: {
-        type: 'object',
-        required: ['videoUrl'],
-        properties: {
-          videoUrl: {
-            type: 'string',
-            format: 'uri',
-            description: 'URL do vídeo a ser processado'
-          }
-        }
-      },
+      description: 'Cria um job de processamento de vídeo. Aceita upload de arquivo (multipart/form-data) ou JSON com campo "videoUrl".',
+      consumes: ['multipart/form-data', 'application/json'],
       response: {
         201: {
           description: 'Job criado com sucesso',
           type: 'object',
           properties: {
             job_id: { type: 'string', format: 'uuid', description: 'ID único do job' },
-            status: { type: 'string', enum: ['UPLOADED'], description: 'Status do job' }
+            status: { type: 'string', enum: ['UPLOADED'], description: 'Status do job' },
+            videoUrl: { type: 'string', format: 'uri', description: 'URL do vídeo (Supabase ou URL fornecida)' }
           }
         },
         400: {
@@ -50,22 +43,76 @@ export async function videosRoutes(
     }
   }, async (request, reply) => {
     try {
-      // Recebe o body com videoUrl
-      const body = request.body as { videoUrl?: string };
-      
-      if (!body || !body.videoUrl) {
-        return reply.code(400).send({
-          error: 'O campo videoUrl é obrigatório'
-        });
-      }
+      let videoUrl: string;
 
-      // Valida se é uma URL válida
-      try {
-        new URL(body.videoUrl);
-      } catch {
-        return reply.code(400).send({
-          error: 'videoUrl deve ser uma URL válida'
-        });
+      // Verifica se a requisição é multipart (upload de arquivo)
+      if (request.isMultipart()) {
+        const data: MultipartFile | undefined = await request.file();
+
+        if (!data) {
+          return reply.code(400).send({
+            error: 'Nenhum arquivo foi enviado'
+          });
+        }
+
+        // Gera um nome único para o arquivo
+        const fileExtension = data.filename.split('.').pop() || 'mp4';
+        const uniqueFileName = `${uuidv4()}.${fileExtension}`;
+
+        try {
+          // Converte o stream em Buffer
+          const buffer = await data.toBuffer();
+
+          // Faz upload para o Supabase Storage no bucket 'videos'
+          const { error: uploadError } = await supabase.storage
+            .from('videos')
+            .upload(uniqueFileName, buffer, {
+              contentType: data.mimetype,
+              upsert: false
+            });
+
+          if (uploadError) {
+            fastify.log.error(`Erro ao fazer upload para Supabase: ${uploadError.message}`);
+            return reply.code(500).send({
+              error: `Erro ao fazer upload do arquivo: ${uploadError.message}`
+            });
+          }
+
+          // Gera a URL pública do arquivo
+          const { data: publicUrlData } = supabase.storage
+            .from('videos')
+            .getPublicUrl(uniqueFileName);
+
+          videoUrl = publicUrlData.publicUrl;
+          fastify.log.info(`Arquivo enviado com sucesso para Supabase: ${videoUrl}`);
+
+        } catch (error) {
+          fastify.log.error(`Erro ao processar upload: ${error}`);
+          return reply.code(500).send({
+            error: 'Erro ao processar upload do arquivo'
+          });
+        }
+
+      } else {
+        // Requisição JSON com videoUrl
+        const body = request.body as { videoUrl?: string };
+
+        if (!body || !body.videoUrl) {
+          return reply.code(400).send({
+            error: 'O campo videoUrl é obrigatório ou envie um arquivo via multipart/form-data'
+          });
+        }
+
+        // Valida se é uma URL válida
+        try {
+          new URL(body.videoUrl);
+        } catch {
+          return reply.code(400).send({
+            error: 'videoUrl deve ser uma URL válida'
+          });
+        }
+
+        videoUrl = body.videoUrl;
       }
 
       // Garante que existe um usuário "system" no banco
@@ -79,14 +126,14 @@ export async function videosRoutes(
         data: {
           id: jobId,
           userId: systemUser.id,
-          inputUrl: body.videoUrl,
+          inputUrl: videoUrl,
           status: 'PENDING'
         }
       });
 
       // Envia requisição para o webhook do n8n
       const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
-      
+
       if (n8nWebhookUrl) {
         try {
           const response = await fetch(n8nWebhookUrl, {
@@ -95,7 +142,7 @@ export async function videosRoutes(
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              videoUrl: body.videoUrl,
+              videoUrl: videoUrl,
               jobId
             })
           });
@@ -116,7 +163,8 @@ export async function videosRoutes(
       // Retorna os dados do job criado
       return reply.code(201).send({
         job_id: job.id,
-        status: job.status
+        status: job.status,
+        videoUrl: videoUrl
       });
 
     } catch (error) {
