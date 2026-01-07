@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
+import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -40,11 +41,19 @@ fastify.register(swaggerUi, {
   }
 });
 
+// Registra CORS para permitir requisições do frontend
+fastify.register(cors, {
+  origin: true, // Permite todas as origens (em produção, especifique os domínios)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+});
+
 // Registra o plugin de multipart para aceitar upload de arquivos
 fastify.register(multipart);
 
 // Hook para adicionar header que evita o aviso do ngrok
-fastify.addHook('onRequest', async (request, reply) => {
+fastify.addHook('onRequest', async (request) => {
   // Adiciona header para pular o aviso do ngrok se não estiver presente
   if (!request.headers['ngrok-skip-browser-warning']) {
     request.headers['ngrok-skip-browser-warning'] = 'true';
