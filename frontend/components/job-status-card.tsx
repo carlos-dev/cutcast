@@ -23,11 +23,11 @@ export function JobStatusCard({ job }: JobStatusCardProps) {
     switch (job.status) {
       case "PENDING":
       case "PROCESSING":
-        return <Loader2 className="h-6 w-6 animate-spin text-primary drop-shadow-[0_0_8px_hsl(270,100%,70%)]" />;
+        return <Loader2 className="h-6 w-6 animate-spin text-primary drop-shadow-[0_0_8px_hsl(270_100%_70%)]" />;
       case "DONE":
-        return <CheckCircle2 className="h-6 w-6 text-accent drop-shadow-[0_0_8px_hsl(195,100%,60%)]" />;
+        return <CheckCircle2 className="h-6 w-6 text-accent drop-shadow-[0_0_8px_hsl(195_100%_60%)]" />;
       case "FAILED":
-        return <XCircle className="h-6 w-6 text-destructive drop-shadow-[0_0_8px_hsl(350,90%,60%)]" />;
+        return <XCircle className="h-6 w-6 text-destructive drop-shadow-[0_0_8px_hsl(350_90%_60%)]" />;
       default:
         return null;
     }
