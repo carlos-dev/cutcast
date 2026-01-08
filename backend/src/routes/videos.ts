@@ -1,8 +1,9 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
-import { prisma, ensureSystemUser } from '../lib/prisma';
+import { prisma } from '../lib/prisma';
 import { supabase } from '../lib/supabase';
 import { MultipartFile } from '@fastify/multipart';
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 
 export async function videosRoutes(
   fastify: FastifyInstance,
@@ -10,11 +11,13 @@ export async function videosRoutes(
 ) {
   // Endpoint POST /videos
   fastify.post('/videos', {
+    preHandler: requireAuth, // Middleware de autenticação
     schema: {
       tags: ['videos'],
       summary: 'Criar job de processamento de vídeo',
-      description: 'Cria um job de processamento de vídeo. Aceita upload de arquivo (multipart/form-data) ou JSON com campo "videoUrl".',
+      description: 'Cria um job de processamento de vídeo. Aceita upload de arquivo (multipart/form-data) ou JSON com campo "videoUrl". Requer autenticação (Bearer token).',
       consumes: ['multipart/form-data', 'application/json'],
+      security: [{ bearerAuth: [] }],
       response: {
         201: {
           description: 'Job criado com sucesso',
@@ -115,17 +118,17 @@ export async function videosRoutes(
         videoUrl = body.videoUrl;
       }
 
-      // Garante que existe um usuário "system" no banco
-      const systemUser = await ensureSystemUser();
+      // Pega o userId do token autenticado
+      const { userId } = request as AuthenticatedRequest;
 
       // Gera um ID único para o job
       const jobId = uuidv4();
 
-      // Cria o job no banco de dados
+      // Cria o job no banco de dados vinculado ao usuário autenticado
       const job = await prisma.job.create({
         data: {
           id: jobId,
-          userId: systemUser.id,
+          userId: userId,
           inputUrl: videoUrl,
           status: 'PENDING'
         }
@@ -173,6 +176,67 @@ export async function videosRoutes(
         error: 'Erro ao processar requisição'
       });
     }
+  });
+
+  // Endpoint GET /jobs para listar jobs do usuário autenticado
+  fastify.get('/jobs', {
+    preHandler: requireAuth, // Middleware de autenticação
+    schema: {
+      tags: ['jobs'],
+      summary: 'Listar jobs do usuário',
+      description: 'Retorna todos os jobs de processamento de vídeo do usuário autenticado, ordenados por data de criação (mais recente primeiro)',
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          description: 'Lista de jobs',
+          type: 'object',
+          properties: {
+            jobs: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid' },
+                  status: { type: 'string', enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'] },
+                  inputUrl: { type: 'string', format: 'uri' },
+                  outputUrl: { type: 'string', format: 'uri', nullable: true },
+                  errorMessage: { type: 'string', nullable: true },
+                  createdAt: { type: 'string', format: 'date-time' },
+                  updatedAt: { type: 'string', format: 'date-time' }
+                }
+              }
+            }
+          }
+        },
+        401: {
+          description: 'Não autenticado',
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    const { userId } = request as AuthenticatedRequest;
+
+    // Busca todos os jobs do usuário, ordenados por data de criação (mais recente primeiro)
+    const jobs = await prisma.job.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return reply.send({
+      jobs: jobs.map(job => ({
+        id: job.id,
+        status: job.status,
+        inputUrl: job.inputUrl,
+        outputUrl: job.outputUrl,
+        errorMessage: job.errorMessage,
+        createdAt: job.createdAt,
+        updatedAt: job.updatedAt
+      }))
+    });
   });
 
   // Endpoint GET /videos/:id para consultar status

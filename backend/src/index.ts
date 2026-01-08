@@ -28,7 +28,17 @@ fastify.register(swagger, {
       { name: 'videos', description: 'Endpoints relacionados ao processamento de vídeos' },
       { name: 'jobs', description: 'Endpoints para consulta de jobs' },
       { name: 'callbacks', description: 'Endpoints relacionados a callbacks do webhook n8n' }
-    ]
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Token JWT do Supabase Auth. Obtenha fazendo login no frontend.'
+        }
+      }
+    }
   }
 });
 

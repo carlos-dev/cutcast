@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Link2, Upload } from "lucide-react";
@@ -11,14 +11,35 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FileUpload } from "@/components/file-upload";
 import { JobStatusCard } from "@/components/job-status-card";
+import { VideoHistory } from "@/components/video-history";
 import { useToast } from "@/hooks/use-toast";
-import { createJobWithUrl, createJobWithFile, getJobStatus } from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
+import { createJobWithUrl, createJobWithFile, getJobStatus, setAuthToken } from "@/lib/api";
+import { createClient } from "@/lib/supabase/client";
 
 export default function Home() {
   const [videoUrl, setVideoUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const supabase = createClient();
+
+  // Configura o token de autenticação quando o usuário estiver logado
+  useEffect(() => {
+    const setupAuth = async () => {
+      if (user) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          setAuthToken(session.access_token);
+        }
+      } else {
+        setAuthToken(null);
+      }
+    };
+
+    setupAuth();
+  }, [user, supabase.auth]);
 
   // Mutation para criar job via URL
   const urlMutation = useMutation({
@@ -186,6 +207,24 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* Video History Section */}
+      <section className="container mx-auto px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.6 }}
+          className="max-w-3xl mx-auto"
+        >
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold">Histórico de Vídeos</h2>
+            <p className="text-muted-foreground mt-1">
+              Acompanhe todos os seus vídeos processados
+            </p>
+          </div>
+          <VideoHistory />
+        </motion.div>
+      </section>
 
       {/* Footer */}
       <footer className="container mx-auto px-4 py-12 text-center text-sm text-muted-foreground">

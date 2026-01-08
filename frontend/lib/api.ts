@@ -1,7 +1,7 @@
 'use client';
 import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://cutcast-production.up.railway.app";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,8 +10,21 @@ export const api = axios.create({
   },
 });
 
+/**
+ * Configura o token de autenticação para todas as requisições
+ * Deve ser chamado após o usuário fazer login
+ */
+export const setAuthToken = (token: string | null) => {
+  if (token) {
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common['Authorization'];
+  }
+};
+
 export interface Job {
-  job_id: string;
+  id?: string;
+  job_id?: string;
   status: "PENDING" | "PROCESSING" | "DONE" | "FAILED";
   videoUrl?: string;
   inputUrl?: string;
@@ -51,4 +64,10 @@ export const createJobWithFile = async (file: File): Promise<CreateJobResponse> 
 export const getJobStatus = async (jobId: string): Promise<Job> => {
   const response = await api.get<Job>(`/videos/${jobId}`);
   return response.data;
+};
+
+// Busca todos os jobs do usuário autenticado
+export const getJobs = async (): Promise<Job[]> => {
+  const response = await api.get<{ jobs: Job[] }>("/jobs");
+  return response.data.jobs;
 };
