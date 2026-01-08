@@ -1,14 +1,26 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Download, Clock, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Download, Clock, CheckCircle, XCircle, Loader2, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getJobs, Job } from "@/lib/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { getJobs, deleteJob, Job } from "@/lib/api";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useToast } from "@/hooks/use-toast";
 
 export function VideoHistory() {
   const { data: jobs, isLoading, error } = useQuery({
@@ -82,6 +94,39 @@ interface JobCardProps {
 }
 
 function JobCard({ job, index }: JobCardProps) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Mutation para deletar job
+  const deleteMutation = useMutation({
+    mutationFn: (jobId: string) => deleteJob(jobId),
+    onSuccess: () => {
+      // Invalida a query para atualizar a lista
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      toast({
+        title: "Vídeo deletado!",
+        description: "O vídeo e seus dados foram removidos com sucesso.",
+      });
+    },
+    onError: (error: unknown) => {
+      const errorMessage =
+        (error as { response?: { data?: { error?: string } } })?.response?.data?.error ||
+        "Não foi possível deletar o vídeo. Tente novamente.";
+
+      toast({
+        variant: "destructive",
+        title: "Erro ao deletar",
+        description: errorMessage,
+      });
+    },
+  });
+
+  const handleDelete = () => {
+    const jobId = job.id || job.job_id;
+    if (jobId) {
+      deleteMutation.mutate(jobId);
+    }
+  };
   const getStatusBadge = (status: Job["status"]) => {
     switch (status) {
       case "PENDING":
@@ -133,7 +178,7 @@ function JobCard({ job, index }: JobCardProps) {
       <Card className={`card-glow ${isProcessing ? "border-primary/50" : ""}`}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
-            <div className="space-y-1">
+            <div className="space-y-1 flex-1">
               <CardTitle className="text-base font-medium">
                 Vídeo {job.id?.slice(0, 8) || job.job_id?.slice(0, 8)}
               </CardTitle>
@@ -143,7 +188,43 @@ function JobCard({ job, index }: JobCardProps) {
                   : "Data não disponível"}
               </p>
             </div>
-            {getStatusBadge(job.status)}
+            <div className="flex items-center gap-2">
+              {getStatusBadge(job.status)}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    disabled={deleteMutation.isPending}
+                  >
+                    {deleteMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação não pode ser desfeita. O vídeo será permanentemente deletado
+                      do banco de dados e do armazenamento.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Deletar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">

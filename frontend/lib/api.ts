@@ -71,3 +71,9 @@ export const getJobs = async (): Promise<Job[]> => {
   const response = await api.get<{ jobs: Job[] }>("/jobs");
   return response.data.jobs;
 };
+
+// Deleta um job e seu vídeo do storage
+export const deleteJob = async (jobId: string): Promise<{ message: string; jobId: string }> => {
+  const response = await api.delete<{ message: string; jobId: string }>(`/videos/${jobId}`);
+  return response.data;
+};

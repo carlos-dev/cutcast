@@ -270,6 +270,135 @@ export async function videosRoutes(
     });
   });
 
+  // Endpoint DELETE /videos/:id para deletar job e arquivo
+  fastify.delete('/videos/:id', {
+    preHandler: requireAuth, // Middleware de autenticação
+    schema: {
+      tags: ['videos'],
+      summary: 'Deletar job e vídeo',
+      description: 'Deleta um job e remove o arquivo do Supabase Storage. Requer autenticação. Apenas o dono do job pode deletá-lo.',
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: {
+            type: 'string',
+            format: 'uuid',
+            description: 'ID do job'
+          }
+        }
+      },
+      response: {
+        200: {
+          description: 'Job e vídeo deletados com sucesso',
+          type: 'object',
+          properties: {
+            message: { type: 'string' },
+            jobId: { type: 'string', format: 'uuid' }
+          }
+        },
+        401: {
+          description: 'Não autenticado',
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        },
+        403: {
+          description: 'Acesso negado - Você não pode deletar jobs de outros usuários',
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        },
+        404: {
+          description: 'Job não encontrado',
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        },
+        500: {
+          description: 'Erro ao deletar job',
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        }
+      }
+    }
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { userId } = request as AuthenticatedRequest;
+
+    try {
+      // Busca o job no banco
+      const job = await prisma.job.findUnique({
+        where: { id }
+      });
+
+      if (!job) {
+        return reply.code(404).send({
+          error: 'Job não encontrado'
+        });
+      }
+
+      // Verifica se o usuário é o dono do job
+      if (job.userId !== userId) {
+        return reply.code(403).send({
+          error: 'Acesso negado. Você não pode deletar jobs de outros usuários.'
+        });
+      }
+
+      // Extrai o nome do arquivo da URL do Supabase
+      // Formato da URL: https://PROJETO.supabase.co/storage/v1/object/public/videos/NOME_ARQUIVO.mp4
+      if (job.inputUrl) {
+        try {
+          const url = new URL(job.inputUrl);
+          const pathParts = url.pathname.split('/');
+          // Pega a última parte do path (nome do arquivo)
+          const fileName = pathParts[pathParts.length - 1];
+
+          // Se o arquivo está no bucket 'videos', tenta deletar
+          if (url.pathname.includes('/videos/')) {
+            const { error: deleteError } = await supabase.storage
+              .from('videos')
+              .remove([fileName]);
+
+            if (deleteError) {
+              fastify.log.warn(`Erro ao deletar arquivo do Storage: ${deleteError.message}`);
+              // Continua mesmo se falhar ao deletar do storage
+            } else {
+              fastify.log.info(`Arquivo ${fileName} deletado do Storage`);
+            }
+          }
+        } catch (error) {
+          fastify.log.warn(`Erro ao processar URL do vídeo: ${error}`);
+          // Continua mesmo se falhar ao processar a URL
+        }
+      }
+
+      // Deleta o job do banco (CASCADE deleta callbacks relacionados)
+      await prisma.job.delete({
+        where: { id }
+      });
+
+      fastify.log.info(`Job ${id} deletado com sucesso pelo usuário ${userId}`);
+
+      return reply.send({
+        message: 'Job e vídeo deletados com sucesso',
+        jobId: id
+      });
+
+    } catch (error) {
+      fastify.log.error(error as Error);
+      return reply.code(500).send({
+        error: 'Erro ao deletar job'
+      });
+    }
+  });
+
   // Endpoint GET /videos/:id para consultar status
   fastify.get('/videos/:id', {
     schema: {
