@@ -1,5 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { supabase } from '../lib/supabase';
+import { prisma } from '../lib/prisma';
 
 export interface AuthenticatedRequest extends FastifyRequest {
   userId: string;
@@ -9,6 +10,7 @@ export interface AuthenticatedRequest extends FastifyRequest {
 /**
  * Middleware para validar o JWT do Supabase e extrair o userId
  * Espera um header Authorization: Bearer <token>
+ * Garante que o usuário existe na tabela users do banco de dados
  */
 export async function requireAuth(
   request: FastifyRequest,
@@ -38,6 +40,19 @@ export async function requireAuth(
         message: 'Token inválido ou expirado',
       });
     }
+
+    // Garante que o usuário existe na tabela users
+    // Se não existir, cria automaticamente
+    await prisma.user.upsert({
+      where: { id: user.id },
+      update: {
+        email: user.email || '',
+      },
+      create: {
+        id: user.id,
+        email: user.email || '',
+      },
+    });
 
     // Adiciona o userId e userEmail ao request para uso nas rotas
     (request as AuthenticatedRequest).userId = user.id;
