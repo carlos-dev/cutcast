@@ -14,7 +14,20 @@ export function VideoHistory() {
   const { data: jobs, isLoading, error } = useQuery({
     queryKey: ["jobs"],
     queryFn: getJobs,
-    refetchInterval: 5000, // Refetch a cada 5 segundos para atualizar status
+    refetchInterval: (query) => {
+      const data = query.state.data;
+
+      // Se ainda não carregou os dados, não faz polling
+      if (!data) return false;
+
+      // Verifica se existe ALGUM job que não está nem concluído nem com erro
+      const isProcessing = data.some((job: Job) =>
+        job.status === 'PENDING' || job.status === 'PROCESSING'
+      );
+
+      // Se tiver job processando, pergunta a cada 3s. Se não, para (false).
+      return isProcessing ? 3000 : false;
+    },
   });
 
   if (isLoading) {

@@ -10,7 +10,6 @@ export function useAuth() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const supabase = createClient();
-  console.log('env', process.env);
   
   useEffect(() => {
     // Pega usuário atual

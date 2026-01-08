@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Link2, Upload } from "lucide-react";
 import { Header } from "@/components/header";
@@ -24,6 +24,7 @@ export default function Home() {
   const { toast } = useToast();
   const { user } = useAuth();
   const supabase = createClient();
+  const queryClient = useQueryClient();
 
   // Configura o token de autenticação quando o usuário estiver logado
   useEffect(() => {
@@ -46,6 +47,8 @@ export default function Home() {
     mutationFn: createJobWithUrl,
     onSuccess: (data) => {
       setCurrentJobId(data.job_id);
+      // Invalida a query do histórico para forçar atualização
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
       toast({
         title: "Job criado!",
         description: "Processamento iniciado. Aguarde alguns minutos.",
@@ -66,6 +69,8 @@ export default function Home() {
     mutationFn: createJobWithFile,
     onSuccess: (data) => {
       setCurrentJobId(data.job_id);
+      // Invalida a query do histórico para forçar atualização
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
       toast({
         title: "Upload concluído!",
         description: "Processamento iniciado. Aguarde alguns minutos.",
