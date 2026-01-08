@@ -35,8 +35,30 @@ export async function videosRoutes(
             error: { type: 'string' }
           }
         },
+        401: {
+          description: 'Não autenticado',
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            message: { type: 'string' }
+          }
+        },
         500: {
           description: 'Erro interno do servidor',
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        },
+        502: {
+          description: 'Webhook n8n retornou erro (workflow pode estar inativo)',
+          type: 'object',
+          properties: {
+            error: { type: 'string' }
+          }
+        },
+        503: {
+          description: 'Serviço de processamento indisponível (n8n offline ou webhook inativo)',
           type: 'object',
           properties: {
             error: { type: 'string' }
@@ -118,13 +140,51 @@ export async function videosRoutes(
         videoUrl = body.videoUrl;
       }
 
+      // Verifica se o webhook do n8n está configurado
+      const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
+
+      if (!n8nWebhookUrl) {
+        fastify.log.error('N8N_WEBHOOK_URL não configurada no .env');
+        return reply.code(500).send({
+          error: 'Serviço de processamento de vídeo não configurado. Configure N8N_WEBHOOK_URL no .env'
+        });
+      }
+
       // Pega o userId do token autenticado
       const { userId } = request as AuthenticatedRequest;
 
       // Gera um ID único para o job
       const jobId = uuidv4();
 
-      // Cria o job no banco de dados vinculado ao usuário autenticado
+      // Tenta chamar o webhook do n8n ANTES de criar o job no banco
+      try {
+        const response = await fetch(n8nWebhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            videoUrl: videoUrl,
+            jobId
+          })
+        });
+
+        if (!response.ok) {
+          fastify.log.error(`Webhook n8n retornou status ${response.status}`);
+          return reply.code(502).send({
+            error: `Serviço de processamento indisponível (status ${response.status}). Verifique se o workflow do n8n está ativo.`
+          });
+        }
+
+        fastify.log.info(`Webhook n8n chamado com sucesso para job ${jobId}`);
+      } catch (error) {
+        fastify.log.error(`Erro ao chamar webhook n8n: ${error}`);
+        return reply.code(503).send({
+          error: 'Serviço de processamento de vídeo indisponível. Verifique se o n8n está rodando e o webhook está ativo.'
+        });
+      }
+
+      // Só cria o job no banco se o n8n respondeu com sucesso
       const job = await prisma.job.create({
         data: {
           id: jobId,
@@ -133,35 +193,6 @@ export async function videosRoutes(
           status: 'PENDING'
         }
       });
-
-      // Envia requisição para o webhook do n8n
-      const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
-
-      if (n8nWebhookUrl) {
-        try {
-          const response = await fetch(n8nWebhookUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              videoUrl: videoUrl,
-              jobId
-            })
-          });
-
-          if (!response.ok) {
-            fastify.log.warn(`Webhook n8n retornou status ${response.status}`);
-          } else {
-            fastify.log.info(`Webhook n8n chamado com sucesso para job ${jobId}`);
-          }
-        } catch (error) {
-          // Log do erro mas não falha a requisição
-          fastify.log.error(`Erro ao chamar webhook n8n: ${error}`);
-        }
-      } else {
-        fastify.log.warn('N8N_WEBHOOK_URL não configurada no .env');
-      }
 
       // Retorna os dados do job criado
       return reply.code(201).send({
