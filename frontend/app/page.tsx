@@ -123,7 +123,7 @@ export default function Home() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.5 }}
           className="text-center space-y-6 max-w-3xl mx-auto"
         >
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
@@ -146,7 +146,7 @@ export default function Home() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
           className="max-w-3xl mx-auto"
         >
           <Card className="p-6 backdrop-blur-sm bg-card/80 border-2 card-glow">
@@ -218,7 +218,7 @@ export default function Home() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
           className="max-w-3xl mx-auto"
         >
           <div className="mb-6">
