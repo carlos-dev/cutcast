@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Link2, Upload } from "lucide-react";
+import { Header } from "@/components/header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-background/50">
+      <Header />
       {/* Hero Section */}
       <section className="container mx-auto px-4 pt-20 pb-12">
         <motion.div

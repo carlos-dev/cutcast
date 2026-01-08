@@ -62,7 +62,6 @@ export function JobStatusCard({ job }: JobStatusCardProps) {
             {getStatusIcon()}
             <span>{getStatusText()}</span>
           </CardTitle>
-          <CardDescription>Job ID: {job.job_id}</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
