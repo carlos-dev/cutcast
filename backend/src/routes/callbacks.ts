@@ -32,10 +32,13 @@ export async function callbacksRoutes(
             enum: ['completed', 'error'],
             description: 'Status do processamento'
           },
-          outputUrl: {
-            type: 'string',
-            format: 'uri',
-            description: 'URL do vídeo processado (opcional)'
+          outputUrls: {
+            type: 'array',
+            items: {
+              type: 'string',
+              format: 'uri'
+            },
+            description: 'Array com URLs dos vídeos processados (obrigatório quando status é completed)'
           },
           errorMessage: {
             type: 'string',
@@ -106,10 +109,23 @@ export async function callbacksRoutes(
       }
 
       // Validações condicionais baseadas no status
-      if (body.status === 'completed' && !body.outputUrl) {
-        return reply.code(400).send({
-          error: 'outputUrl é obrigatório quando status é "completed"'
-        });
+      if (body.status === 'completed') {
+        if (!body.outputUrls || !Array.isArray(body.outputUrls) || body.outputUrls.length === 0) {
+          return reply.code(400).send({
+            error: 'outputUrls é obrigatório e deve conter pelo menos uma URL quando status é "completed"'
+          });
+        }
+
+        // Valida se cada URL no array é válida
+        for (const url of body.outputUrls) {
+          try {
+            new URL(url);
+          } catch {
+            return reply.code(400).send({
+              error: `URL inválida no array outputUrls: ${url}`
+            });
+          }
+        }
       }
 
       if (body.status === 'error' && !body.errorMessage) {
@@ -118,23 +134,12 @@ export async function callbacksRoutes(
         });
       }
 
-      // Valida se output_url é uma URL válida quando fornecido
-      if (body.outputUrl) {
-        try {
-          new URL(body.outputUrl);
-        } catch {
-          return reply.code(400).send({
-            error: 'outputUrl deve ser uma URL válida'
-          });
-        }
-      }
-
-      // Salva o callback no banco de dados
+      // Salva o callback no banco de dados (outputUrls como JSON string)
       await prisma.callback.create({
         data: {
           jobId: jobId,
           status: body.status,
-          outputUrl: body.outputUrl,
+          outputUrls: body.outputUrls ? JSON.stringify(body.outputUrls) : null,
           errorMessage: body.errorMessage
         }
       });
@@ -145,9 +150,9 @@ export async function callbacksRoutes(
         status: newStatus
       };
 
-      // Se completado, salva a URL de saída
-      if (body.status === 'completed' && body.outputUrl) {
-        updateData.outputUrl = body.outputUrl;
+      // Se completado, salva o array de URLs de saída
+      if (body.status === 'completed' && body.outputUrls.length) {
+        updateData.outputUrls = body.outputUrls;
       }
 
       // Se erro, salva a mensagem de erro

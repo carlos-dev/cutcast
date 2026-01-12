@@ -13,7 +13,7 @@ export interface VideoJob {
 export interface JobCallback {
   jobId: string;
   status: 'completed' | 'error';
-  outputUrl?: string;
+  outputUrls: string[];
   errorMessage?: string;
   receivedAt: string;
 }

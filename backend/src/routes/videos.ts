@@ -230,7 +230,11 @@ export async function videosRoutes(
                   id: { type: 'string', format: 'uuid' },
                   status: { type: 'string', enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'] },
                   inputUrl: { type: 'string', format: 'uri' },
-                  outputUrl: { type: 'string', format: 'uri', nullable: true },
+                  outputUrls: {
+                    type: 'array',
+                    items: { type: 'string', format: 'uri' },
+                    description: 'URLs dos vídeos processados'
+                  },
                   errorMessage: { type: 'string', nullable: true },
                   createdAt: { type: 'string', format: 'date-time' },
                   updatedAt: { type: 'string', format: 'date-time' }
@@ -262,7 +266,7 @@ export async function videosRoutes(
         id: job.id,
         status: job.status,
         inputUrl: job.inputUrl,
-        outputUrl: job.outputUrl,
+        outputUrls: job.outputUrls,
         errorMessage: job.errorMessage,
         createdAt: job.createdAt,
         updatedAt: job.updatedAt
@@ -428,7 +432,11 @@ export async function videosRoutes(
               description: 'Status atual do job'
             },
             inputUrl: { type: 'string', format: 'uri', description: 'URL do vídeo original' },
-            outputUrl: { type: 'string', format: 'uri', description: 'URL do vídeo processado (se concluído)' },
+            outputUrls: {
+              type: 'array',
+              items: { type: 'string', format: 'uri' },
+              description: 'URLs dos vídeos processados (se concluído)'
+            },
             errorMessage: { type: 'string', description: 'Mensagem de erro (se houver)' },
             createdAt: { type: 'string', format: 'date-time', description: 'Data de criação' },
             updatedAt: { type: 'string', format: 'date-time', description: 'Data de atualização' }
@@ -460,7 +468,7 @@ export async function videosRoutes(
       jobId: job.id,
       status: job.status,
       inputUrl: job.inputUrl,
-      outputUrl: job.outputUrl,
+      outputUrls: job.outputUrls,
       errorMessage: job.errorMessage,
       createdAt: job.createdAt,
       updatedAt: job.updatedAt

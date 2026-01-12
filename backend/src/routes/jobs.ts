@@ -34,7 +34,11 @@ export async function jobsRoutes(
               description: 'Status atual do job'
             },
             inputUrl: { type: 'string', format: 'uri', description: 'URL do vídeo original' },
-            outputUrl: { type: 'string', format: 'uri', description: 'URL do vídeo processado (se concluído)' },
+            outputUrls: {
+              type: 'array',
+              items: { type: 'string', format: 'uri' },
+              description: 'URLs dos vídeos processados (se concluído)'
+            },
             errorMessage: { type: 'string', description: 'Mensagem de erro (se houver)' },
             createdAt: { type: 'string', format: 'date-time', description: 'Data de criação' },
             updatedAt: { type: 'string', format: 'date-time', description: 'Data de atualização' }
@@ -66,7 +70,7 @@ export async function jobsRoutes(
       jobId: job.id,
       status: job.status,
       inputUrl: job.inputUrl,
-      outputUrl: job.outputUrl,
+      outputUrls: job.outputUrls,
       errorMessage: job.errorMessage,
       createdAt: job.createdAt,
       updatedAt: job.updatedAt
