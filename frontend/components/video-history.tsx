@@ -1,8 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Download, Clock, CheckCircle, XCircle, Loader2, Trash2 } from "lucide-react";
+import { Download, Clock, CheckCircle, XCircle, Loader2, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { VideoGallery } from "@/components/video-gallery";
 import { getJobs, deleteJob, Job } from "@/lib/api";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -94,6 +96,7 @@ interface JobCardProps {
 }
 
 function JobCard({ job, index }: JobCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -167,7 +170,8 @@ function JobCard({ job, index }: JobCardProps) {
   };
 
   const isProcessing = job.status === "PENDING" || job.status === "PROCESSING";
-  const canDownload = job.status === "DONE" && job.outputUrl;
+  const canDownload = job.status === "DONE" && (job.outputUrl || (job.outputUrls && job.outputUrls.length > 0));
+  const hasMultipleVideos = job.outputUrls && job.outputUrls.length > 1;
 
   return (
     <motion.div
@@ -258,18 +262,54 @@ function JobCard({ job, index }: JobCardProps) {
             </div>
           )}
 
-          {/* Botão de Download */}
+          {/* Botão de Ver Vídeos ou Download direto */}
           {canDownload && (
-            <Button
-              asChild
-              size="sm"
-              className="w-full glow-primary"
+            <>
+              {hasMultipleVideos ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                >
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp className="w-4 h-4 mr-2" />
+                      Ocultar Vídeos ({job.outputUrls?.length})
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4 mr-2" />
+                      Ver Todos os Vídeos ({job.outputUrls?.length})
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  asChild
+                  size="sm"
+                  className="w-full glow-primary"
+                >
+                  <a href={job.outputUrl!} target="_blank" rel="noopener noreferrer" download>
+                    <Download className="w-4 h-4 mr-2" />
+                    Baixar Vídeo Processado
+                  </a>
+                </Button>
+              )}
+            </>
+          )}
+
+          {/* Gallery expandível para múltiplos vídeos */}
+          {isExpanded && hasMultipleVideos && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="pt-4"
             >
-              <a href={job.outputUrl!} target="_blank" rel="noopener noreferrer" download>
-                <Download className="w-4 h-4 mr-2" />
-                Baixar Vídeo Processado
-              </a>
-            </Button>
+              <VideoGallery job={job} />
+            </motion.div>
           )}
         </CardContent>
       </Card>

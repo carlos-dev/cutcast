@@ -5,3 +5,5 @@ dist/
 uploads/
 
 backend/prisma/migrations
+
+.DS_Store

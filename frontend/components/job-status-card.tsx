@@ -1,17 +1,15 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CheckCircle2, XCircle, Loader2, Download } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { VideoGallery } from "@/components/video-gallery";
 import type { Job } from "@/lib/api";
 
 interface JobStatusCardProps {
@@ -79,30 +77,15 @@ export function JobStatusCard({ job }: JobStatusCardProps) {
               {job.errorMessage}
             </div>
           )}
-
-          {job.status === "DONE" && job.outputUrl && (
-            <div className="space-y-4">
-              <video
-                src={job.outputUrl}
-                controls
-                className="w-full rounded-lg"
-                style={{ maxHeight: "400px" }}
-              />
-            </div>
-          )}
         </CardContent>
-
-        {job.status === "DONE" && job.outputUrl && (
-          <CardFooter>
-            <Button asChild className="w-full glow-primary transition-all hover:scale-[1.02]" size="lg">
-              <a href={job.outputUrl} download>
-                <Download className="mr-2 h-4 w-4" />
-                Baixar Vídeo
-              </a>
-            </Button>
-          </CardFooter>
-        )}
       </Card>
+
+      {/* Gallery de vídeos processados */}
+      {job.status === "DONE" && (
+        <div className="mt-6">
+          <VideoGallery job={job} />
+        </div>
+      )}
     </motion.div>
   );
 }

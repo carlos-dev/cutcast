@@ -29,6 +29,7 @@ export interface Job {
   videoUrl?: string;
   inputUrl?: string;
   outputUrl?: string | null;
+  outputUrls?: string[];  // Novo formato: array de URLs (múltiplos cortes)
   errorMessage?: string | null;
   createdAt?: string;
   updatedAt?: string;
