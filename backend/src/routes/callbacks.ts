@@ -79,7 +79,7 @@ export async function callbacksRoutes(
     try {
       const body = request.body as JobCallback;
       const jobId = body.jobId;
-
+      fastify.log.info(`Callback recebido para job ${jobId}: ${body}`);
       // Valida se o job existe
       const job = await prisma.job.findUnique({
         where: { id: jobId }

@@ -62,7 +62,7 @@ fastify.register(cors, {
 // Registra o plugin de multipart para aceitar upload de arquivos
 fastify.register(multipart, {
   limits: {
-    fileSize: 500 * 1024 * 1024, // 500MB (em bytes)
+    fileSize: 1 * 1024 * 1024 * 1024, // 1GB (em bytes)
     files: 1 // Apenas 1 arquivo por vez
   }
 });
