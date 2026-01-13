@@ -69,30 +69,44 @@ export async function videosRoutes(
   }, async (request, reply) => {
     try {
       let videoUrl: string;
+      let withSubtitles: boolean = true; // Valor padrão
 
       // Verifica se a requisição é multipart (upload de arquivo)
       if (request.isMultipart()) {
-        const data: MultipartFile | undefined = await request.file();
+        const parts = request.parts();
+        let fileData: MultipartFile | undefined;
 
-        if (!data) {
+        // Processa todas as partes do multipart
+        for await (const part of parts) {
+          if (part.type === 'file') {
+            fileData = part as MultipartFile;
+          } else if (part.type === 'field') {
+            // Captura o campo withSubtitles do FormData
+            if (part.fieldname === 'withSubtitles') {
+              withSubtitles = part.value === 'true';
+            }
+          }
+        }
+
+        if (!fileData) {
           return reply.code(400).send({
             error: 'Nenhum arquivo foi enviado'
           });
         }
 
         // Gera um nome único para o arquivo
-        const fileExtension = data.filename.split('.').pop() || 'mp4';
+        const fileExtension = fileData.filename.split('.').pop() || 'mp4';
         const uniqueFileName = `${uuidv4()}.${fileExtension}`;
 
         try {
           // Converte o stream em Buffer
-          const buffer = await data.toBuffer();
+          const buffer = await fileData.toBuffer();
 
           // Faz upload para o Supabase Storage no bucket 'videos'
           const { error: uploadError } = await supabase.storage
             .from('videos')
             .upload(uniqueFileName, buffer, {
-              contentType: data.mimetype,
+              contentType: fileData.mimetype,
               upsert: false
             });
 
@@ -120,7 +134,7 @@ export async function videosRoutes(
 
       } else {
         // Requisição JSON com videoUrl
-        const body = request.body as { videoUrl?: string };
+        const body = request.body as { videoUrl?: string; withSubtitles?: boolean };
 
         if (!body || !body.videoUrl) {
           return reply.code(400).send({
@@ -138,6 +152,8 @@ export async function videosRoutes(
         }
 
         videoUrl = body.videoUrl;
+        // Captura withSubtitles do body JSON (default true se não fornecido)
+        withSubtitles = body.withSubtitles !== undefined ? body.withSubtitles : true;
       }
 
       // Verifica se o webhook do n8n está configurado
@@ -156,6 +172,9 @@ export async function videosRoutes(
       // Gera um ID único para o job
       const jobId = uuidv4();
 
+      // Log dos parâmetros que serão enviados ao n8n
+      fastify.log.info(`Chamando webhook n8n - jobId: ${jobId}, withSubtitles: ${withSubtitles}`);
+
       // Tenta chamar o webhook do n8n ANTES de criar o job no banco
       try {
         const response = await fetch(n8nWebhookUrl, {
@@ -165,7 +184,8 @@ export async function videosRoutes(
           },
           body: JSON.stringify({
             videoUrl: videoUrl,
-            jobId
+            jobId,
+            withSubtitles
           })
         });
 

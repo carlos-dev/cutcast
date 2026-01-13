@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Link2, Upload } from "lucide-react";
+import { Link2, Upload, Captions } from "lucide-react";
 import { Header } from "@/components/header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ export default function Home() {
   const [videoUrl, setVideoUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [withSubtitles, setWithSubtitles] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
   const supabase = createClient();
@@ -44,7 +45,8 @@ export default function Home() {
 
   // Mutation para criar job via URL
   const urlMutation = useMutation({
-    mutationFn: createJobWithUrl,
+    mutationFn: ({ videoUrl, withSubtitles }: { videoUrl: string; withSubtitles: boolean }) =>
+      createJobWithUrl(videoUrl, withSubtitles),
     onSuccess: (data) => {
       setCurrentJobId(data.job_id);
       // Invalida a query do histórico para forçar atualização
@@ -66,7 +68,8 @@ export default function Home() {
 
   // Mutation para criar job via upload
   const fileMutation = useMutation({
-    mutationFn: createJobWithFile,
+    mutationFn: ({ file, withSubtitles }: { file: File; withSubtitles: boolean }) =>
+      createJobWithFile(file, withSubtitles),
     onSuccess: (data) => {
       setCurrentJobId(data.job_id);
       // Invalida a query do histórico para forçar atualização
@@ -105,12 +108,12 @@ export default function Home() {
   const handleUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!videoUrl.trim()) return;
-    urlMutation.mutate(videoUrl);
+    urlMutation.mutate({ videoUrl, withSubtitles });
   };
 
   const handleFileSubmit = () => {
     if (!selectedFile) return;
-    fileMutation.mutate(selectedFile);
+    fileMutation.mutate({ file: selectedFile, withSubtitles });
   };
 
   const isLoading = urlMutation.isPending || fileMutation.isPending;
@@ -161,6 +164,39 @@ export default function Home() {
                   Upload
                 </TabsTrigger>
               </TabsList>
+
+              {/* Toggle de Legendas */}
+              <div className="mb-6 p-4 rounded-lg border border-border bg-muted/30">
+                <label className="flex items-center justify-between cursor-pointer group">
+                  <div className="flex items-center gap-3">
+                    <Captions className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium text-sm">Gerar Legendas</p>
+                      <p className="text-xs text-muted-foreground">
+                        Adicionar legendas automáticas aos cortes
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={withSubtitles}
+                    onClick={() => setWithSubtitles(!withSubtitles)}
+                    className={`
+                      relative inline-flex h-6 w-11 items-center rounded-full transition-colors
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+                      ${withSubtitles ? 'bg-primary' : 'bg-input'}
+                    `}
+                  >
+                    <span
+                      className={`
+                        inline-block h-4 w-4 transform rounded-full bg-background transition-transform
+                        ${withSubtitles ? 'translate-x-6' : 'translate-x-1'}
+                      `}
+                    />
+                  </button>
+                </label>
+              </div>
 
               <TabsContent value="url" className="space-y-4">
                 <form onSubmit={handleUrlSubmit} className="space-y-4">

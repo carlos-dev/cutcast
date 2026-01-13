@@ -29,7 +29,7 @@ export interface Job {
   videoUrl?: string;
   inputUrl?: string;
   outputUrl?: string | null;
-  outputUrls?: string[];  // Novo formato: array de URLs (múltiplos cortes)
+  outputUrls?: string[];
   errorMessage?: string | null;
   createdAt?: string;
   updatedAt?: string;
@@ -41,16 +41,17 @@ export interface CreateJobResponse {
   videoUrl: string;
 }
 
-// Cria um job de processamento de v�deo via URL
-export const createJobWithUrl = async (videoUrl: string): Promise<CreateJobResponse> => {
-  const response = await api.post<CreateJobResponse>("/videos", { videoUrl });
+// Cria um job de processamento de vídeo via URL
+export const createJobWithUrl = async (videoUrl: string, withSubtitles: boolean = true): Promise<CreateJobResponse> => {
+  const response = await api.post<CreateJobResponse>("/videos", { videoUrl, withSubtitles });
   return response.data;
 };
 
-// Cria um job de processamento de v�deo via upload de arquivo
-export const createJobWithFile = async (file: File): Promise<CreateJobResponse> => {
+// Cria um job de processamento de vídeo via upload de arquivo
+export const createJobWithFile = async (file: File, withSubtitles: boolean = true): Promise<CreateJobResponse> => {
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("withSubtitles", String(withSubtitles));
 
   const response = await api.post<CreateJobResponse>("/videos", formData, {
     headers: {
