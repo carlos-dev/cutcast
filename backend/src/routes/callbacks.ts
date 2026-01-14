@@ -176,7 +176,7 @@ export async function callbacksRoutes(
           jobId: jobId,
           status: body.status,
           outputUrls: body.outputUrls ? JSON.stringify(body.outputUrls) : null,
-          results: body.results ? body.results : null, // Salva results como JSON
+          results: body.results ? (body.results as any) : undefined, // Cast para JSON type do Prisma
           errorMessage: body.errorMessage
         }
       });
@@ -191,7 +191,7 @@ export async function callbacksRoutes(
       if (body.status === 'completed') {
         // PRIORIZA results (novo formato) sobre outputUrls (formato antigo)
         if (body.results && body.results.length > 0) {
-          updateData.results = body.results; // Salva results como JSON
+          updateData.results = body.results as any; // Cast para JSON type do Prisma
           // Extrai as URLs para manter compatibilidade com outputUrls
           updateData.outputUrls = body.results.map(r => r.videoUrl);
         } else if (body.outputUrls && body.outputUrls.length > 0) {
