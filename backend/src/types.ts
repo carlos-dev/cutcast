@@ -9,11 +9,21 @@ export interface VideoJob {
   createdAt: Date;
 }
 
+// Estrutura de um resultado individual com metadados
+export interface VideoResult {
+  videoUrl: string;
+  titulo_viral: string;
+  legenda_post: string;
+  hashtags: string[];
+  titulo_tecnico: string;
+}
+
 // Estrutura de um callback recebido do n8n
 export interface JobCallback {
   jobId: string;
   status: 'completed' | 'error';
-  outputUrls: string[];
+  outputUrls?: string[]; // Mantido para retrocompatibilidade
+  results?: VideoResult[]; // Novo formato com metadados ricos
   errorMessage?: string;
-  receivedAt: string;
+  receivedAt?: string;
 }

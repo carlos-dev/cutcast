@@ -253,7 +253,21 @@ export async function videosRoutes(
                   outputUrls: {
                     type: 'array',
                     items: { type: 'string', format: 'uri' },
-                    description: 'URLs dos vídeos processados'
+                    description: 'URLs dos vídeos processados (DEPRECATED)'
+                  },
+                  results: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        videoUrl: { type: 'string', format: 'uri' },
+                        titulo_viral: { type: 'string' },
+                        legenda_post: { type: 'string' },
+                        hashtags: { type: 'array', items: { type: 'string' } },
+                        titulo_tecnico: { type: 'string' }
+                      }
+                    },
+                    description: 'Vídeos com metadados completos (NOVO FORMATO)'
                   },
                   errorMessage: { type: 'string', nullable: true },
                   createdAt: { type: 'string', format: 'date-time' },
@@ -287,6 +301,7 @@ export async function videosRoutes(
         status: job.status,
         inputUrl: job.inputUrl,
         outputUrls: job.outputUrls,
+        results: job.results,
         errorMessage: job.errorMessage,
         createdAt: job.createdAt,
         updatedAt: job.updatedAt
@@ -455,7 +470,21 @@ export async function videosRoutes(
             outputUrls: {
               type: 'array',
               items: { type: 'string', format: 'uri' },
-              description: 'URLs dos vídeos processados (se concluído)'
+              description: 'URLs dos vídeos processados (DEPRECATED - use results)'
+            },
+            results: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  videoUrl: { type: 'string', format: 'uri' },
+                  titulo_viral: { type: 'string' },
+                  legenda_post: { type: 'string' },
+                  hashtags: { type: 'array', items: { type: 'string' } },
+                  titulo_tecnico: { type: 'string' }
+                }
+              },
+              description: 'Vídeos com metadados completos (NOVO FORMATO)'
             },
             errorMessage: { type: 'string', description: 'Mensagem de erro (se houver)' },
             createdAt: { type: 'string', format: 'date-time', description: 'Data de criação' },
@@ -489,6 +518,7 @@ export async function videosRoutes(
       status: job.status,
       inputUrl: job.inputUrl,
       outputUrls: job.outputUrls,
+      results: job.results,
       errorMessage: job.errorMessage,
       createdAt: job.createdAt,
       updatedAt: job.updatedAt

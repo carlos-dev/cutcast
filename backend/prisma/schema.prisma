@@ -21,6 +21,7 @@ model Job {
   userId       String
   inputUrl     String
   outputUrls   String[]
+  results      Json?      // ✅ Campo adicionado e sincronizado com o banco
   status       String
   errorMessage String?
   createdAt    DateTime   @default(now())
@@ -37,6 +38,7 @@ model Callback {
   jobId        String
   status       String
   outputUrls   String?
+  results      Json? 
   errorMessage String?
   receivedAt   DateTime @default(now())
 
@@ -44,4 +46,3 @@ model Callback {
 
   @@map("callbacks")
 }
-

@@ -38,7 +38,21 @@ export async function callbacksRoutes(
               type: 'string',
               format: 'uri'
             },
-            description: 'Array com URLs dos vídeos processados (obrigatório quando status é completed)'
+            description: 'Array com URLs dos vídeos processados (DEPRECATED - use results)'
+          },
+          results: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                videoUrl: { type: 'string', format: 'uri' },
+                titulo_viral: { type: 'string' },
+                legenda_post: { type: 'string' },
+                hashtags: { type: 'array', items: { type: 'string' } },
+                titulo_tecnico: { type: 'string' }
+              }
+            },
+            description: 'Array com vídeos e metadados completos (NOVO FORMATO - preferencial)'
           },
           errorMessage: {
             type: 'string',
@@ -110,20 +124,42 @@ export async function callbacksRoutes(
 
       // Validações condicionais baseadas no status
       if (body.status === 'completed') {
-        if (!body.outputUrls || !Array.isArray(body.outputUrls) || body.outputUrls.length === 0) {
+        // Valida que pelo menos results OU outputUrls foi enviado
+        if ((!body.results || !Array.isArray(body.results) || body.results.length === 0) &&
+            (!body.outputUrls || !Array.isArray(body.outputUrls) || body.outputUrls.length === 0)) {
           return reply.code(400).send({
-            error: 'outputUrls é obrigatório e deve conter pelo menos uma URL quando status é "completed"'
+            error: 'results ou outputUrls é obrigatório e deve conter pelo menos um item quando status é "completed"'
           });
         }
 
-        // Valida se cada URL no array é válida
-        for (const url of body.outputUrls) {
-          try {
-            new URL(url);
-          } catch {
-            return reply.code(400).send({
-              error: `URL inválida no array outputUrls: ${url}`
-            });
+        // Valida results se foi enviado
+        if (body.results && Array.isArray(body.results)) {
+          for (const result of body.results) {
+            if (!result.videoUrl) {
+              return reply.code(400).send({
+                error: 'Cada item em results deve conter videoUrl'
+              });
+            }
+            try {
+              new URL(result.videoUrl);
+            } catch {
+              return reply.code(400).send({
+                error: `URL inválida em results: ${result.videoUrl}`
+              });
+            }
+          }
+        }
+
+        // Valida outputUrls se foi enviado (retrocompatibilidade)
+        if (body.outputUrls && Array.isArray(body.outputUrls)) {
+          for (const url of body.outputUrls) {
+            try {
+              new URL(url);
+            } catch {
+              return reply.code(400).send({
+                error: `URL inválida no array outputUrls: ${url}`
+              });
+            }
           }
         }
       }
@@ -134,12 +170,13 @@ export async function callbacksRoutes(
         });
       }
 
-      // Salva o callback no banco de dados (outputUrls como JSON string)
+      // Salva o callback no banco de dados
       await prisma.callback.create({
         data: {
           jobId: jobId,
           status: body.status,
           outputUrls: body.outputUrls ? JSON.stringify(body.outputUrls) : null,
+          results: body.results ? body.results : null, // Salva results como JSON
           errorMessage: body.errorMessage
         }
       });
@@ -150,9 +187,17 @@ export async function callbacksRoutes(
         status: newStatus
       };
 
-      // Se completado, salva o array de URLs de saída
-      if (body.status === 'completed' && body.outputUrls.length) {
-        updateData.outputUrls = body.outputUrls;
+      // Se completado, salva os dados
+      if (body.status === 'completed') {
+        // PRIORIZA results (novo formato) sobre outputUrls (formato antigo)
+        if (body.results && body.results.length > 0) {
+          updateData.results = body.results; // Salva results como JSON
+          // Extrai as URLs para manter compatibilidade com outputUrls
+          updateData.outputUrls = body.results.map(r => r.videoUrl);
+        } else if (body.outputUrls && body.outputUrls.length > 0) {
+          // Fallback: se não houver results, usa outputUrls
+          updateData.outputUrls = body.outputUrls;
+        }
       }
 
       // Se erro, salva a mensagem de erro
