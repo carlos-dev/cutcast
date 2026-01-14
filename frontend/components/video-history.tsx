@@ -19,7 +19,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { VideoGallery } from "@/components/video-gallery";
-import { getJobs, deleteJob, Job } from "@/lib/api";
+import { ResultsGallery } from "@/components/results-gallery";
+import { getJobs, deleteJob, normalizeResults, Job } from "@/lib/api";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -170,8 +171,9 @@ function JobCard({ job, index }: JobCardProps) {
   };
 
   const isProcessing = job.status === "PENDING" || job.status === "PROCESSING";
-  const canDownload = job.status === "DONE" && (job.outputUrl || (job.outputUrls && job.outputUrls.length > 0));
-  const hasMultipleVideos = job.outputUrls && job.outputUrls.length > 1;
+  const hasResults = job.results && job.results.length > 0;
+  const canDownload = job.status === "DONE" && (hasResults || job.outputUrl || (job.outputUrls && job.outputUrls.length > 0));
+  const hasMultipleVideos = (job.results && job.results.length > 1) || (job.outputUrls && job.outputUrls.length > 1);
 
   return (
     <motion.div
@@ -275,12 +277,12 @@ function JobCard({ job, index }: JobCardProps) {
                   {isExpanded ? (
                     <>
                       <ChevronUp className="w-4 h-4 mr-2" />
-                      Ocultar Vídeos ({job.outputUrls?.length})
+                      Ocultar Vídeos ({hasResults ? job.results?.length : job.outputUrls?.length})
                     </>
                   ) : (
                     <>
                       <ChevronDown className="w-4 h-4 mr-2" />
-                      Ver Todos os Vídeos ({job.outputUrls?.length})
+                      Ver Todos os Vídeos ({hasResults ? job.results?.length : job.outputUrls?.length})
                     </>
                   )}
                 </Button>
@@ -308,7 +310,12 @@ function JobCard({ job, index }: JobCardProps) {
               transition={{ duration: 0.3 }}
               className="pt-4"
             >
-              <VideoGallery job={job} />
+              {/* Usa ResultsGallery se houver dados no novo formato */}
+              {hasResults ? (
+                <ResultsGallery results={normalizeResults(job.results as any[])} />
+              ) : (
+                <VideoGallery job={job} />
+              )}
             </motion.div>
           )}
         </CardContent>

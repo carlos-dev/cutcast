@@ -127,7 +127,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-center space-y-6 max-w-3xl mx-auto"
+          className="text-center space-y-6 max-w- mx-auto"
         >
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
             Transforme seus vídeos em
@@ -150,7 +150,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="max-w-3xl mx-auto"
+          className="max-w-5xl mx-auto"
         >
           <Card className="p-6 backdrop-blur-sm bg-card/80 border-2 card-glow">
             <Tabs defaultValue="url" className="w-full">
@@ -242,8 +242,8 @@ export default function Home() {
 
       {/* Job Status Section */}
       {jobData && (
-        <section className="container mx-auto px-4 py-12">
-          <div className="max-w-3xl mx-auto">
+        <section className="w-full px-4 py-12">
+          <div className="mx-auto" style={{ maxWidth: "1600px" }}>
             <JobStatusCard job={jobData} />
           </div>
         </section>
@@ -255,7 +255,7 @@ export default function Home() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="max-w-3xl mx-auto"
+          className="max-w-5xl mx-auto"
         >
           <div className="mb-6">
             <h2 className="text-2xl font-bold">Histórico de Vídeos</h2>

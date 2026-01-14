@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { VideoGallery } from "@/components/video-gallery";
+import { ResultsGallery } from "@/components/results-gallery";
+import { normalizeResults } from "@/lib/api";
 import type { Job } from "@/lib/api";
 
 interface JobStatusCardProps {
@@ -83,7 +85,13 @@ export function JobStatusCard({ job }: JobStatusCardProps) {
       {/* Gallery de vídeos processados */}
       {job.status === "DONE" && (
         <div className="mt-6">
-          <VideoGallery job={job} />
+          {/* Usa ResultsGallery se houver dados no novo formato */}
+          {job.results && job.results.length > 0 ? (
+            <ResultsGallery results={normalizeResults(job.results as any[])} />
+          ) : (
+            /* Fallback para formato antigo (apenas URLs) */
+            <VideoGallery job={job} />
+          )}
         </div>
       )}
     </motion.div>

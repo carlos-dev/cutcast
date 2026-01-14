@@ -22,6 +22,16 @@ export const setAuthToken = (token: string | null) => {
   }
 };
 
+// Estrutura de um resultado individual com metadados
+// Mapeia para a estrutura que o backend envia (titulo_viral, legenda_post, etc)
+export interface ResultItem {
+  videoUrl: string;
+  title: string;        // Mapeado de titulo_viral
+  caption: string;      // Mapeado de legenda_post
+  hashtags: string[];
+  titulo_tecnico?: string; // Campo técnico opcional do backend
+}
+
 export interface Job {
   id?: string;
   job_id?: string;
@@ -30,6 +40,7 @@ export interface Job {
   inputUrl?: string;
   outputUrl?: string | null;
   outputUrls?: string[];
+  results?: ResultItem[];
   errorMessage?: string | null;
   createdAt?: string;
   updatedAt?: string;
@@ -78,4 +89,23 @@ export const getJobs = async (): Promise<Job[]> => {
 export const deleteJob = async (jobId: string): Promise<{ message: string; jobId: string }> => {
   const response = await api.delete<{ message: string; jobId: string }>(`/videos/${jobId}`);
   return response.data;
+};
+
+/**
+ * Helper: Normaliza os dados do backend para o formato do frontend
+ * Backend envia: { titulo_viral, legenda_post, ... }
+ * Frontend espera: { title, caption, ... }
+ */
+export const normalizeResults = (backendResults: any[]): ResultItem[] => {
+  if (!backendResults || !Array.isArray(backendResults)) {
+    return [];
+  }
+
+  return backendResults.map(result => ({
+    videoUrl: result.videoUrl,
+    title: result.titulo_viral || result.title || "Título não disponível",
+    caption: result.legenda_post || result.caption || "",
+    hashtags: result.hashtags || [],
+    titulo_tecnico: result.titulo_tecnico
+  }));
 };
