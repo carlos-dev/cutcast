@@ -1,7 +1,9 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
+
+import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { prisma } from '../lib/prisma';
-import { supabase } from '../lib/supabase';
+import { r2Client, R2_BUCKET_NAME, getPublicUrl, extractFileNameFromUrl } from '../lib/r2';
 import { MultipartFile } from '@fastify/multipart';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 
@@ -102,31 +104,22 @@ export async function videosRoutes(
           // Converte o stream em Buffer
           const buffer = await fileData.toBuffer();
 
-          // Faz upload para o Supabase Storage no bucket 'videos'
-          const { error: uploadError } = await supabase.storage
-            .from('videos')
-            .upload(uniqueFileName, buffer, {
-              contentType: fileData.mimetype,
-              upsert: false
-            });
+          // Faz upload para o Cloudflare R2 usando AWS SDK v3
+          const putCommand = new PutObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: uniqueFileName,
+            Body: buffer,
+            ContentType: fileData.mimetype,
+          });
 
-          if (uploadError) {
-            fastify.log.error(`Erro ao fazer upload para Supabase: ${uploadError.message}`);
-            return reply.code(500).send({
-              error: `Erro ao fazer upload do arquivo: ${uploadError.message}`
-            });
-          }
+          await r2Client.send(putCommand);
 
           // Gera a URL pública do arquivo
-          const { data: publicUrlData } = supabase.storage
-            .from('videos')
-            .getPublicUrl(uniqueFileName);
-
-          videoUrl = publicUrlData.publicUrl;
-          fastify.log.info(`Arquivo enviado com sucesso para Supabase: ${videoUrl}`);
+          videoUrl = getPublicUrl(uniqueFileName);
+          fastify.log.info(`Arquivo enviado com sucesso para R2: ${videoUrl}`);
 
         } catch (error) {
-          fastify.log.error(`Erro ao processar upload: ${error}`);
+          fastify.log.error(`Erro ao fazer upload para R2: ${error}`);
           return reply.code(500).send({
             error: 'Erro ao processar upload do arquivo'
           });
@@ -390,31 +383,24 @@ export async function videosRoutes(
         });
       }
 
-      // Extrai o nome do arquivo da URL do Supabase
-      // Formato da URL: https://PROJETO.supabase.co/storage/v1/object/public/videos/NOME_ARQUIVO.mp4
+      // Extrai o nome do arquivo da URL do R2 e deleta do storage
       if (job.inputUrl) {
         try {
-          const url = new URL(job.inputUrl);
-          const pathParts = url.pathname.split('/');
-          // Pega a última parte do path (nome do arquivo)
-          const fileName = pathParts[pathParts.length - 1];
+          const fileName = extractFileNameFromUrl(job.inputUrl);
 
-          // Se o arquivo está no bucket 'videos', tenta deletar
-          if (url.pathname.includes('/videos/')) {
-            const { error: deleteError } = await supabase.storage
-              .from('videos')
-              .remove([fileName]);
+          if (fileName) {
+            // Deleta o arquivo do Cloudflare R2
+            const deleteCommand = new DeleteObjectCommand({
+              Bucket: R2_BUCKET_NAME,
+              Key: fileName,
+            });
 
-            if (deleteError) {
-              fastify.log.warn(`Erro ao deletar arquivo do Storage: ${deleteError.message}`);
-              // Continua mesmo se falhar ao deletar do storage
-            } else {
-              fastify.log.info(`Arquivo ${fileName} deletado do Storage`);
-            }
+            await r2Client.send(deleteCommand);
+            fastify.log.info(`Arquivo ${fileName} deletado do R2`);
           }
         } catch (error) {
-          fastify.log.warn(`Erro ao processar URL do vídeo: ${error}`);
-          // Continua mesmo se falhar ao processar a URL
+          fastify.log.warn(`Erro ao deletar arquivo do R2: ${error}`);
+          // Continua mesmo se falhar ao deletar do storage
         }
       }
 
