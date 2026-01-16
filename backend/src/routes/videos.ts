@@ -1,5 +1,9 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import youtubedl from 'youtube-dl-exec';
 
 import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { prisma } from '../lib/prisma';
@@ -53,16 +57,35 @@ export async function videosRoutes(
         const fileExtension = fileData.filename.split('.').pop() || 'mp4';
         const uniqueFileName = `${uuidv4()}.${fileExtension}`;
 
-        try {
-          // Converte o stream em Buffer
-          const buffer = await fileData.toBuffer();
+        // Salva temporariamente no disco para usar stream (otimiza memória)
+        const tempFilePath = path.join(os.tmpdir(), uniqueFileName);
 
-          // Faz upload para o Cloudflare R2 usando AWS SDK v3
+        try {
+          // Salva o arquivo no disco temporário
+          const writeStream = fs.createWriteStream(tempFilePath);
+          await new Promise((resolve, reject) => {
+            fileData.file.pipe(writeStream);
+            fileData.file.on('end', resolve);
+            fileData.file.on('error', reject);
+            writeStream.on('error', reject);
+          });
+
+          fastify.log.info(`Arquivo salvo temporariamente em: ${tempFilePath}`);
+
+          // Pega tamanho do arquivo
+          const fileStats = fs.statSync(tempFilePath);
+          fastify.log.info(`Tamanho do arquivo: ${(fileStats.size / 1024 / 1024).toFixed(2)} MB`);
+
+          // Cria stream de leitura para upload
+          const fileStream = fs.createReadStream(tempFilePath);
+
+          // Faz upload para o Cloudflare R2 usando Stream
           const putCommand = new PutObjectCommand({
             Bucket: R2_BUCKET_NAME,
             Key: uniqueFileName,
-            Body: buffer,
+            Body: fileStream,
             ContentType: fileData.mimetype,
+            ContentLength: fileStats.size
           });
 
           await r2Client.send(putCommand);
@@ -76,6 +99,16 @@ export async function videosRoutes(
           return reply.code(500).send({
             error: 'Erro ao processar upload do arquivo'
           });
+        } finally {
+          // Limpa o arquivo temporário
+          try {
+            if (fs.existsSync(tempFilePath)) {
+              fs.unlinkSync(tempFilePath);
+              fastify.log.info(`Arquivo temporário removido: ${tempFilePath}`);
+            }
+          } catch (cleanupError) {
+            fastify.log.warn(`Erro ao limpar arquivo temporário: ${cleanupError}`);
+          }
         }
 
       } else {
@@ -97,35 +130,50 @@ export async function videosRoutes(
           });
         }
 
-        // Faz download da URL e upload para R2
+        // Faz download da URL e upload para R2 usando youtube-dl-exec
+        const tempJobId = uuidv4(); // ID temporário para nome do arquivo
+        const tempFilePath = path.join(os.tmpdir(), `${tempJobId}.mp4`);
+
         try {
           fastify.log.info(`Baixando vídeo de: ${body.videoUrl}`);
 
-          // Faz download do vídeo
-          const videoResponse = await fetch(body.videoUrl);
+          // Usa youtube-dl-exec para baixar o vídeo (suporta YouTube, Instagram, TikTok, etc.)
+          await youtubedl(body.videoUrl, {
+            output: tempFilePath,
+            format: 'best[ext=mp4]/best', // Prioriza MP4, mas aceita outros formatos
+            noCheckCertificates: true,
+            noWarnings: true,
+            preferFreeFormats: true,
+            addHeader: [
+              'referer:youtube.com',
+              'user-agent:Mozilla/5.0'
+            ]
+          });
 
-          if (!videoResponse.ok) {
-            return reply.code(400).send({
-              error: `Não foi possível baixar o vídeo da URL fornecida (status ${videoResponse.status})`
-            });
+          fastify.log.info(`Vídeo baixado com sucesso em: ${tempFilePath}`);
+
+          // Verifica se o arquivo foi criado
+          if (!fs.existsSync(tempFilePath)) {
+            throw new Error('Arquivo não foi baixado corretamente');
           }
 
-          // Converte para buffer
-          const arrayBuffer = await videoResponse.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
+          // Pega informações do arquivo
+          const fileStats = fs.statSync(tempFilePath);
+          fastify.log.info(`Tamanho do vídeo: ${(fileStats.size / 1024 / 1024).toFixed(2)} MB`);
 
-          fastify.log.info(`Vídeo baixado com sucesso (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+          // Gera nome único para o arquivo no R2
+          const uniqueFileName = `${uuidv4()}.mp4`;
 
-          // Gera nome único para o arquivo
-          const fileExtension = body.videoUrl.split('.').pop()?.split('?')[0] || 'mp4';
-          const uniqueFileName = `${uuidv4()}.${fileExtension}`;
+          // Cria stream de leitura do arquivo (otimiza memória)
+          const fileStream = fs.createReadStream(tempFilePath);
 
-          // Faz upload para R2
+          // Faz upload para R2 usando Stream
           const putCommand = new PutObjectCommand({
             Bucket: R2_BUCKET_NAME,
             Key: uniqueFileName,
-            Body: buffer,
-            ContentType: videoResponse.headers.get('content-type') || 'video/mp4',
+            Body: fileStream,
+            ContentType: 'video/mp4',
+            ContentLength: fileStats.size
           });
 
           await r2Client.send(putCommand);
@@ -137,8 +185,18 @@ export async function videosRoutes(
         } catch (error) {
           fastify.log.error(`Erro ao processar URL do vídeo: ${error}`);
           return reply.code(500).send({
-            error: 'Erro ao baixar ou fazer upload do vídeo da URL fornecida'
+            error: 'Erro ao baixar ou fazer upload do vídeo da URL fornecida. Verifique se a URL é válida e acessível.'
           });
+        } finally {
+          // Limpa o arquivo temporário
+          try {
+            if (fs.existsSync(tempFilePath)) {
+              fs.unlinkSync(tempFilePath);
+              fastify.log.info(`Arquivo temporário removido: ${tempFilePath}`);
+            }
+          } catch (cleanupError) {
+            fastify.log.warn(`Erro ao limpar arquivo temporário: ${cleanupError}`);
+          }
         }
 
         // Captura withSubtitles do body JSON (default true se não fornecido)
