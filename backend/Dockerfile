@@ -1,4 +1,4 @@
-# Use uma imagem base do Node
+# Use uma imagem base do Node (versão completa para ter as dependências de sistema)
 FROM node:20
 
 # Instala Python3 e FFmpeg (Necessários para youtube-dl)
@@ -10,25 +10,27 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# 1. Copia os arquivos de definição de dependências
+# 1. Copia apenas os arquivos de dependência
 COPY package*.json ./
 
-# 2. CRÍTICO: Copia a pasta prisma ANTES de instalar as dependências
-# Isso é necessário porque o script 'postinstall' roda 'prisma generate'
+# 2. 🚨 O PULO DO GATO: Copia a pasta do Prisma ANTES do npm install
+# O script 'postinstall' do package.json roda 'prisma generate', que precisa desse arquivo
 COPY prisma ./prisma/
 
-# 3. Agora é seguro rodar o install (o schema já existe lá)
+# 3. Agora sim roda a instalação (vai encontrar o schema.prisma)
 RUN npm install
 
 # 4. Copia o restante do código fonte
 COPY . .
 
-# (Opcional) Garante que o cliente está gerado mais uma vez para segurança
+# 5. Gera o cliente prisma novamente (garantia)
 RUN npx prisma generate
 
-# 5. Builda o projeto
+# 6. Compila o TypeScript
 RUN npm run build
 
+# Expõe a porta
 EXPOSE 3000
 
+# Inicia
 CMD ["npm", "start"]
