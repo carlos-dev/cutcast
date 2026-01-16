@@ -144,7 +144,50 @@ export async function videosRoutes(
           });
         }
 
-        videoUrl = body.videoUrl;
+        // Faz download da URL e upload para R2
+        try {
+          fastify.log.info(`Baixando vídeo de: ${body.videoUrl}`);
+
+          // Faz download do vídeo
+          const videoResponse = await fetch(body.videoUrl);
+
+          if (!videoResponse.ok) {
+            return reply.code(400).send({
+              error: `Não foi possível baixar o vídeo da URL fornecida (status ${videoResponse.status})`
+            });
+          }
+
+          // Converte para buffer
+          const arrayBuffer = await videoResponse.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+
+          fastify.log.info(`Vídeo baixado com sucesso (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
+
+          // Gera nome único para o arquivo
+          const fileExtension = body.videoUrl.split('.').pop()?.split('?')[0] || 'mp4';
+          const uniqueFileName = `${uuidv4()}.${fileExtension}`;
+
+          // Faz upload para R2
+          const putCommand = new PutObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: uniqueFileName,
+            Body: buffer,
+            ContentType: videoResponse.headers.get('content-type') || 'video/mp4',
+          });
+
+          await r2Client.send(putCommand);
+
+          // Gera URL pública do R2
+          videoUrl = getPublicUrl(uniqueFileName);
+          fastify.log.info(`Vídeo enviado para R2: ${videoUrl}`);
+
+        } catch (error) {
+          fastify.log.error(`Erro ao processar URL do vídeo: ${error}`);
+          return reply.code(500).send({
+            error: 'Erro ao baixar ou fazer upload do vídeo da URL fornecida'
+          });
+        }
+
         // Captura withSubtitles do body JSON (default true se não fornecido)
         withSubtitles = body.withSubtitles !== undefined ? body.withSubtitles : true;
       }
