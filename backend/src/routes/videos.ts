@@ -6,6 +6,12 @@ import { prisma } from '../lib/prisma';
 import { r2Client, R2_BUCKET_NAME, getPublicUrl, extractFileNameFromUrl } from '../lib/r2';
 import { MultipartFile } from '@fastify/multipart';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
+import {
+  createVideoJobSchema,
+  listJobsSchema,
+  deleteVideoJobSchema,
+  getVideoJobSchema
+} from '../schemas/videos.schemas';
 
 export async function videosRoutes(
   fastify: FastifyInstance,
@@ -13,61 +19,8 @@ export async function videosRoutes(
 ) {
   // Endpoint POST /videos
   fastify.post('/videos', {
-    preHandler: requireAuth, // Middleware de autenticação
-    schema: {
-      tags: ['videos'],
-      summary: 'Criar job de processamento de vídeo',
-      description: 'Cria um job de processamento de vídeo. Aceita upload de arquivo (multipart/form-data) ou JSON com campo "videoUrl". Requer autenticação (Bearer token).',
-      consumes: ['multipart/form-data', 'application/json'],
-      security: [{ bearerAuth: [] }],
-      response: {
-        201: {
-          description: 'Job criado com sucesso',
-          type: 'object',
-          properties: {
-            job_id: { type: 'string', format: 'uuid', description: 'ID único do job' },
-            status: { type: 'string', enum: ['UPLOADED'], description: 'Status do job' },
-            videoUrl: { type: 'string', format: 'uri', description: 'URL do vídeo (Supabase ou URL fornecida)' }
-          }
-        },
-        400: {
-          description: 'Requisição inválida',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        401: {
-          description: 'Não autenticado',
-          type: 'object',
-          properties: {
-            error: { type: 'string' },
-            message: { type: 'string' }
-          }
-        },
-        500: {
-          description: 'Erro interno do servidor',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        502: {
-          description: 'Webhook n8n retornou erro (workflow pode estar inativo)',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        503: {
-          description: 'Serviço de processamento indisponível (n8n offline ou webhook inativo)',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        }
-      }
-    }
+    preHandler: requireAuth,
+    schema: createVideoJobSchema
   }, async (request, reply) => {
     try {
       let videoUrl: string;
@@ -267,61 +220,8 @@ export async function videosRoutes(
 
   // Endpoint GET /jobs para listar jobs do usuário autenticado
   fastify.get('/jobs', {
-    preHandler: requireAuth, // Middleware de autenticação
-    schema: {
-      tags: ['jobs'],
-      summary: 'Listar jobs do usuário',
-      description: 'Retorna todos os jobs de processamento de vídeo do usuário autenticado, ordenados por data de criação (mais recente primeiro)',
-      security: [{ bearerAuth: [] }],
-      response: {
-        200: {
-          description: 'Lista de jobs',
-          type: 'object',
-          properties: {
-            jobs: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  id: { type: 'string', format: 'uuid' },
-                  status: { type: 'string', enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'] },
-                  inputUrl: { type: 'string', format: 'uri' },
-                  outputUrls: {
-                    type: 'array',
-                    items: { type: 'string', format: 'uri' },
-                    description: 'URLs dos vídeos processados (DEPRECATED)'
-                  },
-                  results: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      properties: {
-                        videoUrl: { type: 'string', format: 'uri' },
-                        titulo_viral: { type: 'string' },
-                        legenda_post: { type: 'string' },
-                        hashtags: { type: 'array', items: { type: 'string' } },
-                        titulo_tecnico: { type: 'string' }
-                      }
-                    },
-                    description: 'Vídeos com metadados completos (NOVO FORMATO)'
-                  },
-                  errorMessage: { type: 'string', nullable: true },
-                  createdAt: { type: 'string', format: 'date-time' },
-                  updatedAt: { type: 'string', format: 'date-time' }
-                }
-              }
-            }
-          }
-        },
-        401: {
-          description: 'Não autenticado',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        }
-      }
-    }
+    preHandler: requireAuth,
+    schema: listJobsSchema
   }, async (request, reply) => {
     const { userId } = request as AuthenticatedRequest;
 
@@ -347,62 +247,8 @@ export async function videosRoutes(
 
   // Endpoint DELETE /videos/:id para deletar job e arquivo
   fastify.delete('/videos/:id', {
-    preHandler: requireAuth, // Middleware de autenticação
-    schema: {
-      tags: ['videos'],
-      summary: 'Deletar job e vídeo',
-      description: 'Deleta um job e remove o arquivo do Supabase Storage. Requer autenticação. Apenas o dono do job pode deletá-lo.',
-      security: [{ bearerAuth: [] }],
-      params: {
-        type: 'object',
-        required: ['id'],
-        properties: {
-          id: {
-            type: 'string',
-            format: 'uuid',
-            description: 'ID do job'
-          }
-        }
-      },
-      response: {
-        200: {
-          description: 'Job e vídeo deletados com sucesso',
-          type: 'object',
-          properties: {
-            message: { type: 'string' },
-            jobId: { type: 'string', format: 'uuid' }
-          }
-        },
-        401: {
-          description: 'Não autenticado',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        403: {
-          description: 'Acesso negado - Você não pode deletar jobs de outros usuários',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        404: {
-          description: 'Job não encontrado',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        500: {
-          description: 'Erro ao deletar job',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        }
-      }
-    }
+    preHandler: requireAuth,
+    schema: deleteVideoJobSchema
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { userId } = request as AuthenticatedRequest;
@@ -469,66 +315,7 @@ export async function videosRoutes(
 
   // Endpoint GET /videos/:id para consultar status
   fastify.get('/videos/:id', {
-    schema: {
-      tags: ['videos'],
-      summary: 'Consultar status do job',
-      description: 'Retorna informações sobre um job de processamento de vídeo',
-      params: {
-        type: 'object',
-        required: ['id'],
-        properties: {
-          id: {
-            type: 'string',
-            format: 'uuid',
-            description: 'ID do job'
-          }
-        }
-      },
-      response: {
-        200: {
-          description: 'Job encontrado',
-          type: 'object',
-          properties: {
-            job_id: { type: 'string', format: 'uuid', description: 'ID do job' },
-            status: {
-              type: 'string',
-              enum: ['UPLOADED', 'PROCESSING', 'DONE', 'FAILED'],
-              description: 'Status atual do job'
-            },
-            inputUrl: { type: 'string', format: 'uri', description: 'URL do vídeo original' },
-            outputUrls: {
-              type: 'array',
-              items: { type: 'string', format: 'uri' },
-              description: 'URLs dos vídeos processados (DEPRECATED - use results)'
-            },
-            results: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  videoUrl: { type: 'string', format: 'uri' },
-                  titulo_viral: { type: 'string' },
-                  legenda_post: { type: 'string' },
-                  hashtags: { type: 'array', items: { type: 'string' } },
-                  titulo_tecnico: { type: 'string' }
-                }
-              },
-              description: 'Vídeos com metadados completos (NOVO FORMATO)'
-            },
-            errorMessage: { type: 'string', description: 'Mensagem de erro (se houver)' },
-            createdAt: { type: 'string', format: 'date-time', description: 'Data de criação' },
-            updatedAt: { type: 'string', format: 'date-time', description: 'Data de atualização' }
-          }
-        },
-        404: {
-          description: 'Job não encontrado',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        }
-      }
-    }
+    schema: getVideoJobSchema
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
 

@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { JobCallback } from '../types';
 import { prisma } from '../lib/prisma';
+import { jobCallbackSchema } from '../schemas/callbacks.schemas';
 
 export async function callbacksRoutes(
   fastify: FastifyInstance,
@@ -8,90 +9,7 @@ export async function callbacksRoutes(
 ) {
   // Endpoint POST /jobs/:job_id/callback
   fastify.post('/jobs/:job_id/callback', {
-    schema: {
-      tags: ['callbacks'],
-      summary: 'Receber callback do webhook n8n',
-      description: 'Endpoint chamado pelo n8n ao final do processamento de vídeo',
-      params: {
-        type: 'object',
-        required: ['job_id'],
-        properties: {
-          job_id: {
-            type: 'string',
-            format: 'uuid',
-            description: 'ID do job'
-          }
-        }
-      },
-      body: {
-        type: 'object',
-        required: ['status'],
-        properties: {
-          status: {
-            type: 'string',
-            enum: ['completed', 'error'],
-            description: 'Status do processamento'
-          },
-          outputUrls: {
-            type: 'array',
-            items: {
-              type: 'string',
-              format: 'uri'
-            },
-            description: 'Array com URLs dos vídeos processados (DEPRECATED - use results)'
-          },
-          results: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                videoUrl: { type: 'string', format: 'uri' },
-                titulo_viral: { type: 'string' },
-                legenda_post: { type: 'string' },
-                hashtags: { type: 'array', items: { type: 'string' } },
-                titulo_tecnico: { type: 'string' }
-              }
-            },
-            description: 'Array com vídeos e metadados completos (NOVO FORMATO - preferencial)'
-          },
-          errorMessage: {
-            type: 'string',
-            description: 'Mensagem de erro (opcional)'
-          }
-        }
-      },
-      response: {
-        200: {
-          description: 'Callback recebido com sucesso',
-          type: 'object',
-          properties: {
-            message: { type: 'string' },
-            jobId: { type: 'string', format: 'uuid' }
-          }
-        },
-        400: {
-          description: 'Requisição inválida',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        404: {
-          description: 'Job não encontrado',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        },
-        500: {
-          description: 'Erro interno do servidor',
-          type: 'object',
-          properties: {
-            error: { type: 'string' }
-          }
-        }
-      }
-    }
+    schema: jobCallbackSchema
   }, async (request, reply) => {
     try {
       const body = request.body as JobCallback;
