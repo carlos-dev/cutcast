@@ -1,33 +1,34 @@
-# Use uma imagem base do Node que permite instalar pacotes do sistema (Debian)
+# Use uma imagem base do Node
 FROM node:20
 
-# Atualiza o sistema e instala Python3, PIP e FFmpeg (Necessários para youtube-dl)
+# Instala Python3 e FFmpeg (Necessários para youtube-dl)
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Define o diretório de trabalho
 WORKDIR /app
 
-# Copia os arquivos de dependência primeiro (para cache do Docker)
+# 1. Copia os arquivos de definição de dependências
 COPY package*.json ./
 
-# Instala as dependências do Node
+# 2. CRÍTICO: Copia a pasta prisma ANTES de instalar as dependências
+# Isso é necessário porque o script 'postinstall' roda 'prisma generate'
+COPY prisma ./prisma/
+
+# 3. Agora é seguro rodar o install (o schema já existe lá)
 RUN npm install
 
-# Copia o restante do código do backend
+# 4. Copia o restante do código fonte
 COPY . .
 
-# Gera o cliente do Prisma (necessário para o banco de dados)
+# (Opcional) Garante que o cliente está gerado mais uma vez para segurança
 RUN npx prisma generate
 
-# Compila o TypeScript para JavaScript
+# 5. Builda o projeto
 RUN npm run build
 
-# Expõe a porta que o Fastify usa
 EXPOSE 3000
 
-# Comando para iniciar a aplicação
 CMD ["npm", "start"]
