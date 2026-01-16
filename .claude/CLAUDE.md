@@ -13,16 +13,16 @@ CutCast is an MVP web application that automatically generates vertical clips (9
   - Owns all system state, business rules, and job lifecycle
   - Communicates with n8n via HTTP webhooks
   - Never allows n8n to write directly to the database
-  - Handles file uploads and stores them in Supabase Storage
+  - Handles file uploads and stores them in Cloudflare R2
 - **Frontend**: Next.js (not yet implemented)
 - **Processing**: n8n workflows handle video processing and call back to the backend
 - **Database**: PostgreSQL via Prisma ORM
-- **Storage**: Supabase Storage for video files
+- **Storage**: Cloudflare R2 for video files
 
 ### Key Data Flow
 1. User submits video via POST /videos (either URL or file upload)
-   - If file upload: Backend uploads to Supabase Storage and gets public URL
-   - If URL: Backend uses the provided URL directly
+   - If file upload: Backend uploads to Cloudflare R2 and gets public URL
+   - If URL: Backend downloads the video, uploads to R2, and uses R2 public URL
 2. Backend creates Job in database with status PENDING
 3. Backend triggers n8n webhook with videoUrl and jobId
 4. n8n processes video and calls POST /jobs/:job_id/callback
@@ -101,9 +101,9 @@ Swagger UI available at: **http://localhost:3000/docs**
 
 ### Key Endpoints
 - `POST /videos` - Create video processing job
-  - Accepts JSON with `videoUrl` field (application/json)
-  - OR file upload via multipart/form-data
-  - File uploads are stored in Supabase Storage bucket 'videos'
+  - Accepts JSON with `videoUrl` field (application/json) - backend downloads and uploads to R2
+  - OR file upload via multipart/form-data - backend uploads directly to R2
+  - All videos are stored in Cloudflare R2 bucket 'videos'
 - `GET /videos/:id` - Query job status by job ID
 - `POST /jobs/:job_id/callback` - Webhook receiver for n8n callbacks
 
@@ -140,8 +140,8 @@ Using **PostgreSQL via Prisma ORM** for persistent storage. The schema defines:
 
 - Fastify configured with logging, multipart file support, and Swagger
 - ngrok header middleware automatically adds `ngrok-skip-browser-warning` header
-- File uploads handled via `@fastify/multipart` and stored in Supabase Storage
-- Supabase Storage bucket 'videos' must be created and configured as public
+- File uploads and URL downloads handled via `@fastify/multipart` and stored in Cloudflare R2
+- R2 bucket 'videos' must be created and configured with public access
 - Jobs stored in PostgreSQL via Prisma for persistence
 - n8n webhook failures are logged but don't fail the request
 - TypeScript compiled to ES2022 targeting Node.js CommonJS
