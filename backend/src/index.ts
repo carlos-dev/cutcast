@@ -67,7 +67,6 @@ fastify.register(multipart, {
   }
 });
 
-
 // Hook para adicionar header que evita o aviso do ngrok
 fastify.addHook('onRequest', async (request) => {
   // Adiciona header para pular o aviso do ngrok se não estiver presente
