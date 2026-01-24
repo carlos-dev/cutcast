@@ -140,14 +140,25 @@ export async function videosRoutes(
           // Usa youtube-dl-exec para baixar o vídeo (suporta YouTube, Instagram, TikTok, etc.)
           await youtubedl(body.videoUrl, {
             output: tempFilePath,
-            format: 'best[ext=mp4]/best', // Prioriza MP4, mas aceita outros formatos
+            // Formatos mais compatíveis - tenta vários fallbacks
+            format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best',
+            mergeOutputFormat: 'mp4',
             noCheckCertificates: true,
             noWarnings: true,
             preferFreeFormats: true,
+            // Retry em caso de falha
+            retries: 3,
+            // Força IPv4 (alguns provedores têm problemas com IPv6)
+            forceIpv4: true,
+            // Headers mais completos para evitar bloqueios
             addHeader: [
-              'referer:youtube.com',
-              'user-agent:Mozilla/5.0'
-            ]
+              'referer:https://www.youtube.com/',
+              'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            ],
+            // Extrai áudio junto se necessário
+            extractAudio: false,
+            // Não usar cache (pode causar problemas)
+            rmCacheDir: true
           });
 
           fastify.log.info(`Vídeo baixado com sucesso em: ${tempFilePath}`);
@@ -157,8 +168,11 @@ export async function videosRoutes(
             throw new Error('Arquivo não foi baixado corretamente');
           }
 
-          // Pega informações do arquivo
+          // Pega informações do arquivo e verifica se não está vazio
           const fileStats = fs.statSync(tempFilePath);
+          if (fileStats.size === 0) {
+            throw new Error('O arquivo baixado está vazio. O vídeo pode estar protegido ou indisponível.');
+          }
           fastify.log.info(`Tamanho do vídeo: ${(fileStats.size / 1024 / 1024).toFixed(2)} MB`);
 
           // Gera nome único para o arquivo no R2
