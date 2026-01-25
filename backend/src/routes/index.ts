@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { videosRoutes } from './videos';
 import { callbacksRoutes } from './callbacks';
 import { jobsRoutes } from './jobs';
+import { progressRoutes } from './progress';
 
 export async function registerRoutes(fastify: FastifyInstance) {
   // Endpoint GET / para informações sobre a API
@@ -14,6 +15,7 @@ export async function registerRoutes(fastify: FastifyInstance) {
         'GET /videos/:id': 'Consultar status do job',
         'GET /jobs/:id': 'Consultar status do job (alternativo)',
         'POST /jobs/:job_id/callback': 'Receber callback do webhook n8n',
+        'GET /jobs/:job_id/progress': 'Stream de progresso em tempo real (NDJSON)',
         'GET /docs': 'Documentação Swagger'
       },
       note: 'Para acessar via ngrok sem o aviso, adicione o header: ngrok-skip-browser-warning: true'
@@ -24,5 +26,6 @@ export async function registerRoutes(fastify: FastifyInstance) {
   fastify.register(videosRoutes);
   fastify.register(jobsRoutes);
   fastify.register(callbacksRoutes);
+  fastify.register(progressRoutes);
 }
 
