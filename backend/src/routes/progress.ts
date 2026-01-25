@@ -24,6 +24,19 @@ export async function progressRoutes(
   fastify: FastifyInstance,
   _options: FastifyPluginOptions
 ) {
+  // Handler para preflight CORS (OPTIONS)
+  fastify.options('/jobs/:job_id/progress', async (request, reply) => {
+    const origin = request.headers.origin || '*';
+    return reply
+      .header('Access-Control-Allow-Origin', origin)
+      .header('Access-Control-Allow-Credentials', 'true')
+      .header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept')
+      .header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+      .header('Access-Control-Max-Age', '86400')
+      .code(204)
+      .send();
+  });
+
   // Endpoint GET /jobs/:job_id/progress - Stream de progresso NDJSON
   fastify.get('/jobs/:job_id/progress', {
     preHandler: requireAuth
@@ -63,12 +76,20 @@ export async function progressRoutes(
       }) + '\n');
     }
 
-    // Configura headers para streaming NDJSON
+    // Pega a origem da requisição para CORS
+    const origin = request.headers.origin || '*';
+
+    // Configura headers para streaming NDJSON com CORS
     reply.raw.writeHead(200, {
       'Content-Type': 'application/x-ndjson',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no' // Desabilita buffering no nginx/proxy
+      'X-Accel-Buffering': 'no', // Desabilita buffering no nginx/proxy
+      // Headers CORS necessários para streaming
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS'
     });
 
     // Registra a conexão
