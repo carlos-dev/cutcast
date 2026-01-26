@@ -1,12 +1,19 @@
 # Use uma imagem base do Node
 FROM node:20
 
-# Instala Python3 e FFmpeg (Necessários para youtube-dl)
+# Instala Python3, FFmpeg e dependências para yt-dlp
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     ffmpeg \
+    curl \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Instala Deno (runtime JS necessário para yt-dlp gerar PO Token do YouTube)
+RUN curl -fsSL https://deno.land/install.sh | sh
+ENV DENO_INSTALL="/root/.deno"
+ENV PATH="$DENO_INSTALL/bin:$PATH"
 
 WORKDIR /app
 
