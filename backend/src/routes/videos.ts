@@ -140,23 +140,14 @@ export async function videosRoutes(
           // Usa youtube-dl-exec para baixar o vídeo (suporta YouTube, Instagram, TikTok, etc.)
           await youtubedl(body.videoUrl, {
             output: tempFilePath,
-            // Formatos mais compatíveis - tenta vários fallbacks
-            format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/bestvideo+bestaudio/best',
-            mergeOutputFormat: 'mp4',
+            format: 'best[ext=mp4]/best', // Prioriza MP4, mas aceita outros formatos
             noCheckCertificates: true,
             noWarnings: true,
             preferFreeFormats: true,
-            // Retry em caso de falha
-            retries: 3,
-            // Força IPv4 (alguns provedores têm problemas com IPv6)
-            forceIpv4: true,
-            // Headers mais completos para evitar bloqueios
             addHeader: [
-              'referer:https://www.youtube.com/',
-              'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            ],
-            // Não usar cache (pode causar problemas)
-            rmCacheDir: true
+              'referer:youtube.com',
+              'user-agent:Mozilla/5.0'
+            ]
           });
 
           fastify.log.info(`Vídeo baixado com sucesso em: ${tempFilePath}`);
