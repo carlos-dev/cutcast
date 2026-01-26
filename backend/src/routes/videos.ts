@@ -138,17 +138,26 @@ export async function videosRoutes(
           fastify.log.info(`Baixando vídeo de: ${body.videoUrl}`);
 
           // Usa youtube-dl-exec para baixar o vídeo (suporta YouTube, Instagram, TikTok, etc.)
-          await youtubedl(body.videoUrl, {
-            output: tempFilePath,
-            format: 'best[ext=mp4]/best', // Prioriza MP4, mas aceita outros formatos
-            noCheckCertificates: true,
-            noWarnings: true,
-            preferFreeFormats: true,
-            addHeader: [
-              'referer:youtube.com',
-              'user-agent:Mozilla/5.0'
-            ]
-          });
+          fastify.log.info(`Iniciando download com yt-dlp para: ${tempFilePath}`);
+
+          try {
+            const result = await youtubedl(body.videoUrl, {
+              output: tempFilePath,
+              format: 'best[ext=mp4]/best', // Prioriza MP4, mas aceita outros formatos
+              noCheckCertificates: true,
+              noWarnings: true,
+              preferFreeFormats: true,
+              addHeader: [
+                'referer:youtube.com',
+                'user-agent:Mozilla/5.0'
+              ],
+              verbose: true // Adiciona logs detalhados
+            });
+            fastify.log.info(`yt-dlp resultado: ${JSON.stringify(result)}`);
+          } catch (ytdlError) {
+            fastify.log.error(`yt-dlp erro detalhado: ${ytdlError}`);
+            throw ytdlError;
+          }
 
           fastify.log.info(`Vídeo baixado com sucesso em: ${tempFilePath}`);
 
