@@ -104,6 +104,8 @@ export async function progressRoutes(
     };
 
     activeConnections.get(job_id)!.add(sendData);
+    const totalConnections = activeConnections.get(job_id)!.size;
+    fastify.log.info(`[PROGRESS GET] Frontend conectou ao job=${job_id}. Total conexões: ${totalConnections}`);
 
     // Envia status inicial
     sendData(JSON.stringify({
@@ -114,6 +116,7 @@ export async function progressRoutes(
 
     // Cleanup quando a conexão fechar
     request.raw.on('close', () => {
+      fastify.log.info(`[PROGRESS GET] Frontend desconectou do job=${job_id}`);
       const connections = activeConnections.get(job_id);
       if (connections) {
         connections.delete(sendData);
@@ -159,10 +162,13 @@ export async function progressRoutes(
       error?: string;
     };
 
-    fastify.log.info(`Progresso recebido para job ${job_id}: ${body.status} ${body.progress}%`);
+    const connectionsCount = activeConnections.get(job_id)?.size || 0;
+    fastify.log.info(`[PROGRESS POST] job=${job_id} status=${body.status} progress=${body.progress}% conexões_ativas=${connectionsCount}`);
+    fastify.log.info(`[PROGRESS POST] body completo: ${JSON.stringify(body)}`);
 
     // Broadcast para todas as conexões deste job
     broadcastProgress(job_id, body);
+    fastify.log.info(`[PROGRESS POST] Broadcast enviado para ${connectionsCount} conexões`);
 
     // Se completou ou deu erro, fecha as conexões
     if (body.status === 'completed' || body.status === 'error') {
