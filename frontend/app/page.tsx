@@ -18,9 +18,11 @@ import {
   createJobWithUrl,
   createJobWithFile,
   getJobStatus,
+  getJobs,
   setAuthToken,
   consumeProgressStream,
-  type StreamingProgress
+  type StreamingProgress,
+  type Job
 } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
@@ -108,6 +110,38 @@ export default function Home() {
       }
     };
   }, []);
+
+  // Verifica se há jobs em andamento ao carregar a página (reconexão após reload)
+  useEffect(() => {
+    const checkPendingJobs = async () => {
+      // Espera o token estar configurado
+      if (!user) return;
+
+      // Garante que o token está configurado antes de fazer a requisição
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      setAuthToken(session.access_token);
+
+      try {
+        const jobs = await getJobs();
+
+        // Encontra o job mais recente que está em processamento
+        const pendingJob = jobs?.find(
+          (job: Job) => job.status === 'PENDING' || job.status === 'PROCESSING'
+        );
+
+        if (pendingJob && !isStreaming && !currentJobId) {
+          const jobId = pendingJob.id || pendingJob.job_id;
+          if (jobId) {
+            setCurrentJobId(jobId);
+            startProgressStream(jobId);
+          }
+        }
+      } catch (_) {}
+    };
+
+    checkPendingJobs();
+  }, [user, supabase.auth, isStreaming, currentJobId, startProgressStream]);
 
   // Mutation para criar job via URL
   const urlMutation = useMutation({
