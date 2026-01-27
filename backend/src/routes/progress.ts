@@ -5,6 +5,9 @@ import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 // Armazena conexões SSE ativas por jobId
 const activeConnections = new Map<string, Set<(data: string) => void>>();
 
+// Armazena o último progresso de cada job para evitar "vai e volta"
+const lastProgress = new Map<string, number>();
+
 // Função para enviar progresso para todas as conexões de um job
 export function broadcastProgress(jobId: string, data: object) {
   const connections = activeConnections.get(jobId);
@@ -163,15 +166,24 @@ export async function progressRoutes(
     };
 
     const connectionsCount = activeConnections.get(job_id)?.size || 0;
-    fastify.log.info(`[PROGRESS POST] job=${job_id} status=${body.status} progress=${body.progress}% conexões_ativas=${connectionsCount}`);
-    fastify.log.info(`[PROGRESS POST] body completo: ${JSON.stringify(body)}`);
+    const currentProgress = body.progress || 0;
+    const previousProgress = lastProgress.get(job_id) || 0;
 
-    // Broadcast para todas as conexões deste job
-    broadcastProgress(job_id, body);
-    fastify.log.info(`[PROGRESS POST] Broadcast enviado para ${connectionsCount} conexões`);
+    fastify.log.info(`[PROGRESS POST] job=${job_id} status=${body.status} progress=${currentProgress}% (anterior=${previousProgress}%) conexões_ativas=${connectionsCount}`);
 
-    // Se completou ou deu erro, fecha as conexões
+    // Só faz broadcast se o progresso for MAIOR que o anterior (evita "vai e volta")
+    // Exceção: status 'completed' ou 'error' sempre passa
+    if (currentProgress > previousProgress || body.status === 'completed' || body.status === 'error') {
+      lastProgress.set(job_id, currentProgress);
+      broadcastProgress(job_id, body);
+      fastify.log.info(`[PROGRESS POST] Broadcast enviado para ${connectionsCount} conexões`);
+    } else {
+      fastify.log.info(`[PROGRESS POST] Ignorado (progresso menor ou igual ao anterior)`);
+    }
+
+    // Se completou ou deu erro, fecha as conexões e limpa o cache
     if (body.status === 'completed' || body.status === 'error') {
+      lastProgress.delete(job_id); // Limpa cache de progresso
       const connections = activeConnections.get(job_id);
       if (connections) {
         const finalMessage = JSON.stringify(body) + '\n';
