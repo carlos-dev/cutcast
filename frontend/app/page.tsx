@@ -223,10 +223,11 @@ export default function Home() {
   const getStatusLabel = (status: StreamingProgress['status']) => {
     switch (status) {
       case 'downloading': return 'Baixando';
-      case 'transcribing': return 'Transcrevendo';
-      case 'analyzing': return 'Analisando';
-      case 'rendering': return 'Renderizando';
-      case 'uploading': return 'Enviando';
+      case 'transcribing': return 'Transcrevendo áudio';
+      case 'analyzing': return 'IA analisando';
+      case 'rendering': return 'Gerando cortes';
+      case 'uploading': return 'Finalizando';
+      case 'completed': return 'Concluído';
       default: return 'Processando';
     }
   };

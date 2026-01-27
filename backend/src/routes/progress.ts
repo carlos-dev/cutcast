@@ -111,12 +111,14 @@ export async function progressRoutes(
     fastify.log.info(`[PROGRESS GET] Frontend conectou ao job=${job_id}. Total conexões: ${totalConnections}`);
 
     // Envia status inicial com o último progresso conhecido (para reconexões)
-    const currentProgress = lastProgress.get(job_id) || 0;
-    const initialStatus = currentProgress >= 50 ? 'rendering' : 'downloading';
+    // Nova escala: Upload = botão "Enviando...", n8n = 10-50%, Worker = 50-100%
+    const savedProgress = lastProgress.get(job_id);
+    const currentProgress = savedProgress !== undefined ? savedProgress : 10; // Começa em 10% (após upload)
+    const initialStatus = currentProgress >= 50 ? 'rendering' : 'transcribing';
     sendData(JSON.stringify({
       status: initialStatus,
       progress: currentProgress,
-      message: currentProgress > 0 ? 'Reconectado ao stream de progresso' : 'Conectado ao stream de progresso'
+      message: savedProgress !== undefined ? 'Reconectado ao stream de progresso' : 'Iniciando processamento...'
     }) + '\n');
     fastify.log.info(`[PROGRESS GET] Enviado progresso inicial: ${currentProgress}%`);
 
