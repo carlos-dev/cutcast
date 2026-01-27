@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Link2, Upload, Captions } from "lucide-react";
@@ -14,7 +14,14 @@ import { JobStatusCard } from "@/components/job-status-card";
 import { VideoHistory } from "@/components/video-history";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { createJobWithUrl, createJobWithFile, getJobStatus, setAuthToken } from "@/lib/api";
+import {
+  createJobWithUrl,
+  createJobWithFile,
+  getJobStatus,
+  setAuthToken,
+  consumeProgressStream,
+  type StreamingProgress
+} from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 
 export default function Home() {
@@ -22,6 +29,12 @@ export default function Home() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [withSubtitles, setWithSubtitles] = useState(true);
+
+  // Estado do streaming de progresso
+  const [streamingProgress, setStreamingProgress] = useState<StreamingProgress | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const { toast } = useToast();
   const { user } = useAuth();
   const supabase = createClient();
@@ -43,19 +56,73 @@ export default function Home() {
     setupAuth();
   }, [user, supabase.auth]);
 
+  // Função para iniciar o streaming de progresso
+  const startProgressStream = useCallback((jobId: string) => {
+    // Cancela qualquer stream anterior
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setIsStreaming(true);
+    setStreamingProgress(null);
+
+    consumeProgressStream(jobId, {
+      onProgress: (data) => {
+        setStreamingProgress(data);
+      },
+      onComplete: (data) => {
+        setStreamingProgress(data);
+        setIsStreaming(false);
+        // Invalida queries para atualizar dados
+        queryClient.invalidateQueries({ queryKey: ["job", jobId] });
+        queryClient.invalidateQueries({ queryKey: ["jobs"] });
+        toast({
+          title: "Processamento concluído!",
+          description: "Seus cortes estão prontos.",
+        });
+      },
+      onError: (error) => {
+        setStreamingProgress({
+          status: 'error',
+          progress: 0,
+          error: error
+        });
+        setIsStreaming(false);
+        toast({
+          variant: "destructive",
+          title: "Erro no processamento",
+          description: error,
+        });
+      }
+    }, controller);
+  }, [queryClient, toast]);
+
+  // Cleanup do stream quando componente desmontar
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   // Mutation para criar job via URL
   const urlMutation = useMutation({
     mutationFn: ({ videoUrl, withSubtitles }: { videoUrl: string; withSubtitles: boolean }) =>
       createJobWithUrl(videoUrl, withSubtitles),
     onSuccess: (data) => {
       setCurrentJobId(data.job_id);
-      // Invalida a query do histórico para forçar atualização
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       toast({
         title: "Job criado!",
-        description: "Processamento iniciado. Aguarde alguns minutos.",
+        description: "Conectando ao stream de progresso...",
       });
       setVideoUrl("");
+      // Inicia o streaming de progresso
+      startProgressStream(data.job_id);
     },
     onError: () => {
       toast({
@@ -72,13 +139,14 @@ export default function Home() {
       createJobWithFile(file, withSubtitles),
     onSuccess: (data) => {
       setCurrentJobId(data.job_id);
-      // Invalida a query do histórico para forçar atualização
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       toast({
         title: "Upload concluído!",
-        description: "Processamento iniciado. Aguarde alguns minutos.",
+        description: "Conectando ao stream de progresso...",
       });
       setSelectedFile(null);
+      // Inicia o streaming de progresso
+      startProgressStream(data.job_id);
     },
     onError: () => {
       toast({
@@ -89,21 +157,45 @@ export default function Home() {
     },
   });
 
-  // Query para polling do status do job
+  // Define isLoading baseado no status das mutations
+  const isLoading = urlMutation.isPending || fileMutation.isPending;
+
+  // Query para polling do status do job (fallback quando streaming não está ativo)
   const { data: jobData } = useQuery({
     queryKey: ["job", currentJobId],
     queryFn: () => getJobStatus(currentJobId!),
-    enabled: !!currentJobId,
+    enabled: !!currentJobId && !isStreaming, // Desabilita polling durante streaming
     refetchInterval: (query) => {
       const job = query.state.data;
-      // Se status for PENDING ou PROCESSING, refetch a cada 3 segundos
-      if (job?.status === "PENDING" || job?.status === "PROCESSING") {
-        return 3000;
+      // Se status for PENDING ou PROCESSING e não estiver streaming, refetch a cada 5 segundos
+      if (!isStreaming && (job?.status === "PENDING" || job?.status === "PROCESSING")) {
+        return 5000;
       }
-      // Caso contrário, para de refetch
       return false;
     },
   });
+
+  // Texto do botão baseado no estado
+  const getButtonText = () => {
+    if (isLoading) {
+      return "Enviando...";
+    }
+    if (isStreaming && streamingProgress) {
+      return `${streamingProgress.progress}% - ${getStatusLabel(streamingProgress.status)}`;
+    }
+    return "Gerar Cortes";
+  };
+
+  const getStatusLabel = (status: StreamingProgress['status']) => {
+    switch (status) {
+      case 'downloading': return 'Baixando';
+      case 'transcribing': return 'Transcrevendo';
+      case 'analyzing': return 'Analisando';
+      case 'rendering': return 'Renderizando';
+      case 'uploading': return 'Enviando';
+      default: return 'Processando';
+    }
+  };
 
   const handleUrlSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,7 +208,7 @@ export default function Home() {
     fileMutation.mutate({ file: selectedFile, withSubtitles });
   };
 
-  const isLoading = urlMutation.isPending || fileMutation.isPending;
+  const isDisabled = isLoading || isStreaming;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-background/50">
@@ -206,7 +298,7 @@ export default function Home() {
                       placeholder="Cole aqui o link do YouTube, Vimeo ou qualquer vídeo..."
                       value={videoUrl}
                       onChange={(e) => setVideoUrl(e.target.value)}
-                      disabled={isLoading}
+                      disabled={isDisabled}
                       className="h-12 text-base"
                     />
                   </div>
@@ -214,9 +306,9 @@ export default function Home() {
                     type="submit"
                     size="lg"
                     className="w-full glow-primary transition-all hover:scale-[1.02]"
-                    disabled={isLoading || !videoUrl.trim()}
+                    disabled={isDisabled || !videoUrl.trim()}
                   >
-                    {isLoading ? "Processando..." : "Gerar Cortes"}
+                    {getButtonText()}
                   </Button>
                 </form>
               </TabsContent>
@@ -224,15 +316,15 @@ export default function Home() {
               <TabsContent value="upload" className="space-y-4">
                 <FileUpload
                   onFileSelect={setSelectedFile}
-                  disabled={isLoading}
+                  disabled={isDisabled}
                 />
                 <Button
                   size="lg"
                   className="w-full glow-primary transition-all hover:scale-[1.02]"
                   onClick={handleFileSubmit}
-                  disabled={isLoading || !selectedFile}
+                  disabled={isDisabled || !selectedFile}
                 >
-                  {isLoading ? "Fazendo Upload..." : "Processar Vídeo"}
+                  {isLoading ? "Enviando..." : "Processar Vídeo"}
                 </Button>
               </TabsContent>
             </Tabs>
@@ -241,10 +333,14 @@ export default function Home() {
       </section>
 
       {/* Job Status Section */}
-      {jobData && (
+      {(jobData || (isStreaming && streamingProgress)) && (
         <section className="w-full px-4 py-12">
           <div className="mx-auto" style={{ maxWidth: "1600px" }}>
-            <JobStatusCard job={jobData} />
+            <JobStatusCard
+              job={jobData || { status: "PROCESSING" }}
+              streamingProgress={streamingProgress}
+              isStreaming={isStreaming}
+            />
           </div>
         </section>
       )}

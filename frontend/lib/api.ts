@@ -10,17 +10,26 @@ export const api = axios.create({
   },
 });
 
+// Token armazenado para uso em fetch nativo (streaming)
+let authToken: string | null = null;
+
 /**
  * Configura o token de autenticação para todas as requisições
  * Deve ser chamado após o usuário fazer login
  */
 export const setAuthToken = (token: string | null) => {
+  authToken = token;
   if (token) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   } else {
     delete api.defaults.headers.common['Authorization'];
   }
 };
+
+/**
+ * Retorna o token atual para uso em fetch nativo
+ */
+export const getAuthToken = () => authToken;
 
 // Estrutura de um resultado individual com metadados
 // Mapeia para a estrutura que o backend envia (titulo_viral, legenda_post, etc)
@@ -50,6 +59,34 @@ export interface CreateJobResponse {
   job_id: string;
   status: string;
   videoUrl: string;
+}
+
+// === STREAMING PROGRESS TYPES ===
+
+export type StreamingStatus =
+  | 'downloading'
+  | 'transcribing'
+  | 'analyzing'
+  | 'rendering'
+  | 'uploading'
+  | 'completed'
+  | 'error';
+
+export interface StreamingProgress {
+  status: StreamingStatus;
+  progress: number; // 0-100
+  message?: string;
+  clipIndex?: number; // Qual corte está sendo processado (1, 2, 3...)
+  totalClips?: number;
+  url?: string; // URL do vídeo quando completed
+  success?: boolean;
+  error?: string;
+}
+
+export interface StreamingCallbacks {
+  onProgress: (data: StreamingProgress) => void;
+  onComplete: (data: StreamingProgress) => void;
+  onError: (error: string) => void;
 }
 
 // Cria um job de processamento de vídeo via URL
@@ -109,3 +146,125 @@ export const normalizeResults = (backendResults: any[]): ResultItem[] => {
     titulo_tecnico: result.titulo_tecnico
   }));
 };
+
+// === STREAMING NDJSON CONSUMER ===
+
+/**
+ * Consome um stream NDJSON e chama os callbacks conforme os chunks chegam
+ * Usa fetch nativo com response.body.getReader() para streaming real
+ */
+export async function consumeProgressStream(
+  jobId: string,
+  callbacks: StreamingCallbacks,
+  abortController?: AbortController
+): Promise<void> {
+  const token = getAuthToken();
+
+  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/progress`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/x-ndjson',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    },
+    signal: abortController?.signal
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    callbacks.onError(`Erro ao conectar ao stream: ${response.status} - ${errorText}`);
+    return;
+  }
+
+  if (!response.body) {
+    callbacks.onError('Stream não disponível');
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        // Processa qualquer dado restante no buffer
+        if (buffer.trim()) {
+          processBufferLine(buffer.trim(), callbacks);
+        }
+        break;
+      }
+
+      // Decodifica o chunk e adiciona ao buffer
+      buffer += decoder.decode(value, { stream: true });
+
+      // Processa linhas completas (separadas por \n)
+      const lines = buffer.split('\n');
+
+      // Mantém a última linha incompleta no buffer
+      buffer = lines.pop() || '';
+
+      // Processa cada linha completa
+      for (const line of lines) {
+        if (line.trim()) {
+          processBufferLine(line.trim(), callbacks);
+        }
+      }
+    }
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') {
+      console.log('Stream abortado pelo usuário');
+      return;
+    }
+    callbacks.onError(`Erro ao ler stream: ${(error as Error).message}`);
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/**
+ * Processa uma linha do buffer NDJSON
+ */
+function processBufferLine(line: string, callbacks: StreamingCallbacks): void {
+  try {
+    const data = JSON.parse(line) as StreamingProgress;
+
+    if (data.status === 'completed') {
+      callbacks.onComplete(data);
+    } else if (data.status === 'error') {
+      callbacks.onError(data.error || 'Erro desconhecido');
+    } else {
+      callbacks.onProgress(data);
+    }
+  } catch {
+    console.warn('Linha NDJSON inválida:', line);
+  }
+}
+
+/**
+ * Helper: Retorna mensagem amigável baseada no status
+ */
+export function getProgressMessage(data: StreamingProgress): string {
+  switch (data.status) {
+    case 'downloading':
+      return 'Baixando vídeo...';
+    case 'transcribing':
+      return 'Transcrevendo áudio...';
+    case 'analyzing':
+      return 'IA analisando conteúdo...';
+    case 'rendering':
+      if (data.clipIndex && data.totalClips) {
+        return `Renderizando corte ${data.clipIndex}/${data.totalClips}...`;
+      }
+      return 'Renderizando vídeo...';
+    case 'uploading':
+      return 'Enviando para a nuvem...';
+    case 'completed':
+      return 'Concluído!';
+    case 'error':
+      return data.error || 'Erro no processamento';
+    default:
+      return data.message || 'Processando...';
+  }
+}
