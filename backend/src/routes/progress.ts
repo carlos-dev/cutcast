@@ -36,7 +36,7 @@ export async function progressRoutes(
       .code(204)
       .send();
   });
-
+ 
   // Endpoint GET /jobs/:job_id/progress - Stream de progresso NDJSON
   fastify.get('/jobs/:job_id/progress', {
     preHandler: requireAuth
