@@ -156,10 +156,8 @@ export default function TermsPage() {
               <section>
                 <h2 className="text-xl font-semibold mb-3">11. Contato</h2>
                 <p className="text-muted-foreground">
-                  Para dúvidas sobre estes Termos de Uso, entre em contato pelo e-mail:{" "}
-                  <a href="mailto:contato@cutcast.com" className="text-primary hover:underline">
-                    contato@cutcast.com
-                  </a>
+                  Para dúvidas sobre estes Termos de Uso, entre em contato através do e-mail de suporte
+                  disponível na plataforma.
                 </p>
               </section>
             </div>

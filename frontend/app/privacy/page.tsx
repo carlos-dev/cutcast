@@ -116,23 +116,11 @@ export default function PrivacyPage() {
 
               {/* 6. Seus Direitos */}
               <section>
-                <h2 className="text-xl font-semibold mb-3">6. Seus Direitos</h2>
-                <p className="text-muted-foreground mb-3">
-                  De acordo com a Lei Geral de Proteção de Dados (LGPD), você tem direito a:
-                </p>
-                <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-2">
-                  <li>Acessar os dados pessoais que temos sobre você</li>
-                  <li>Corrigir dados incompletos, inexatos ou desatualizados</li>
-                  <li>Solicitar a exclusão de seus dados pessoais</li>
-                  <li>Revogar o consentimento a qualquer momento</li>
-                  <li>Solicitar a portabilidade dos seus dados</li>
-                  <li>Obter informações sobre o compartilhamento de seus dados</li>
-                </ul>
-                <p className="text-muted-foreground mt-3">
-                  Para exercer esses direitos, entre em contato pelo e-mail:{" "}
-                  <a href="mailto:privacidade@cutcast.com" className="text-primary hover:underline">
-                    privacidade@cutcast.com
-                  </a>
+                <h2 className="text-xl font-semibold mb-3">6. Seus Direitos (LGPD/GDPR)</h2>
+                <p className="text-muted-foreground">
+                  Você tem o direito de acessar, corrigir ou excluir seus dados pessoais a qualquer momento.
+                  Para exercer esses direitos, entre em contato conosco através do e-mail de suporte disponível
+                  na plataforma.
                 </p>
               </section>
 
@@ -169,10 +157,8 @@ export default function PrivacyPage() {
               <section>
                 <h2 className="text-xl font-semibold mb-3">10. Contato</h2>
                 <p className="text-muted-foreground">
-                  Para dúvidas sobre esta Política de Privacidade ou sobre como tratamos seus dados, entre em contato:{" "}
-                  <a href="mailto:privacidade@cutcast.com" className="text-primary hover:underline">
-                    privacidade@cutcast.com
-                  </a>
+                  Para dúvidas sobre esta Política de Privacidade ou sobre como tratamos seus dados,
+                  entre em contato através do e-mail de suporte disponível na plataforma.
                 </p>
               </section>
             </div>
