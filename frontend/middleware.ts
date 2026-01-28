@@ -17,6 +17,6 @@ export const config = {
      * - tiktok_ (ARQUIVOS DE VERIFICAÇÃO DO TIKTOK)
      * - images (extensões comuns)
      */
-    '/((?!_next/static|_next/image|favicon.ico|tiktok_.*|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|tiktok.*|.*\\.(?:svg|png|jpg|jpeg|gif|webp|txt)$).*)',
   ],
 }
