@@ -217,7 +217,28 @@ export async function consumeProgressStream(
       console.log('Stream abortado pelo usuário');
       return;
     }
-    callbacks.onError(`Erro ao ler stream: ${(error as Error).message}`);
+
+    // Se a conexão caiu, verifica o status real do job antes de mostrar erro
+    try {
+      const job = await getJobStatus(jobId);
+      if (job.status === 'DONE') {
+        // Job completou com sucesso, não mostra erro
+        callbacks.onComplete({
+          status: 'completed',
+          progress: 100,
+          success: true
+        });
+        return;
+      } else if (job.status === 'FAILED') {
+        callbacks.onError(job.errorMessage || 'Erro no processamento');
+        return;
+      }
+      // Job ainda em processamento - conexão caiu, mostra erro de rede
+      callbacks.onError(`Conexão perdida. Recarregue a página para acompanhar o progresso.`);
+    } catch {
+      // Não conseguiu verificar status, mostra erro original
+      callbacks.onError(`Erro ao ler stream: ${(error as Error).message}`);
+    }
   } finally {
     reader.releaseLock();
   }
@@ -228,7 +249,12 @@ export async function consumeProgressStream(
  */
 function processBufferLine(line: string, callbacks: StreamingCallbacks): void {
   try {
-    const data = JSON.parse(line) as StreamingProgress;
+    const data = JSON.parse(line) as StreamingProgress & { type?: string };
+
+    // Ignora mensagens de keepalive
+    if (data.type === 'keepalive') {
+      return;
+    }
 
     if (data.status === 'completed') {
       callbacks.onComplete(data);

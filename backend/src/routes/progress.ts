@@ -135,9 +135,18 @@ export async function progressRoutes(
     });
 
     // Mantém a conexão aberta - o progresso será enviado via broadcastProgress
-    // Timeout de 10 minutos (o processamento pode demorar)
+    // Keepalive a cada 30 segundos para evitar timeout de proxies/browsers
+    // Timeout máximo de 30 minutos (vídeos longos podem demorar muito)
     await new Promise<void>((resolve) => {
+      const keepaliveInterval = setInterval(() => {
+        if (!reply.raw.writableEnded) {
+          // Envia comentário NDJSON como keepalive (será ignorado pelo parser)
+          sendData('{"type":"keepalive"}\n');
+        }
+      }, 30 * 1000); // 30 segundos
+
       const timeout = setTimeout(() => {
+        clearInterval(keepaliveInterval);
         if (!reply.raw.writableEnded) {
           sendData(JSON.stringify({
             status: 'error',
@@ -147,9 +156,10 @@ export async function progressRoutes(
           reply.raw.end();
         }
         resolve();
-      }, 10 * 60 * 1000); // 10 minutos
+      }, 30 * 60 * 1000); // 30 minutos
 
       request.raw.on('close', () => {
+        clearInterval(keepaliveInterval);
         clearTimeout(timeout);
         resolve();
       });
