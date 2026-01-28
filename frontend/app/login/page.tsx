@@ -405,6 +405,18 @@ export default function LoginPage() {
                       />
                     </div>
 
+                    <p className="text-xs text-muted-foreground">
+                      Ao criar sua conta, você concorda com nossos{" "}
+                      <a href="/terms" className="text-primary hover:underline">
+                        Termos de Uso
+                      </a>{" "}
+                      e{" "}
+                      <a href="/privacy" className="text-primary hover:underline">
+                        Política de Privacidade
+                      </a>
+                      .
+                    </p>
+
                     <Button
                       type="submit"
                       className="w-full glow-primary transition-all hover:scale-[1.02]"
@@ -430,7 +442,13 @@ export default function LoginPage() {
 
           {/* Footer */}
           <p className="text-center text-sm text-muted-foreground">
-            Ao continuar, você concorda com nossos Termos de Uso
+            <a href="/terms" className="hover:text-foreground transition-colors">
+              Termos de Uso
+            </a>
+            {" · "}
+            <a href="/privacy" className="hover:text-foreground transition-colors">
+              Privacidade
+            </a>
           </p>
         </motion.div>
       </div>

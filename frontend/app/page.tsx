@@ -401,6 +401,14 @@ export default function Home() {
       {/* Footer */}
       <footer className="container mx-auto px-4 py-12 text-center text-sm text-muted-foreground">
         <p>© 2026 CutCast. Transformando conteúdo em viralidade.</p>
+        <div className="mt-2 space-x-4">
+          <a href="/terms" className="hover:text-foreground transition-colors">
+            Termos de Uso
+          </a>
+          <a href="/privacy" className="hover:text-foreground transition-colors">
+            Privacidade
+          </a>
+        </div>
       </footer>
     </div>
   );
