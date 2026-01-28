@@ -1,3 +1,5 @@
+// frontend/middleware.ts
+
 import { type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
@@ -12,8 +14,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
+     * - tiktok_ (ARQUIVOS DE VERIFICAÇÃO DO TIKTOK)
+     * - images (extensões comuns)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|tiktok_.*|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
