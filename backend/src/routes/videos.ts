@@ -5,6 +5,11 @@ import path from 'path';
 import os from 'os';
 import youtubedl from 'youtube-dl-exec';
 
+// Usa o binário do sistema se disponível (mais atualizado no Docker), senão usa o bundled
+const ytdlp = fs.existsSync('/usr/local/bin/yt-dlp')
+  ? youtubedl.create('/usr/local/bin/yt-dlp')
+  : youtubedl;
+
 import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { prisma } from '../lib/prisma';
 import { r2Client, R2_BUCKET_NAME, getPublicUrl, extractFileNameFromUrl } from '../lib/r2';
@@ -141,17 +146,21 @@ export async function videosRoutes(
           fastify.log.info(`Iniciando download com yt-dlp para: ${tempFilePath}`);
 
           try {
-            const result = await youtubedl(body.videoUrl, {
+            const result = await ytdlp(body.videoUrl, {
               output: tempFilePath,
               format: 'best[ext=mp4]/best', // Prioriza MP4, mas aceita outros formatos
               noCheckCertificates: true,
               noWarnings: true,
               preferFreeFormats: true,
+              // Headers mais realistas
               addHeader: [
-                'referer:youtube.com',
-                'user-agent:Mozilla/5.0'
+                'referer:https://www.youtube.com/',
+                'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'accept-language:en-US,en;q=0.9'
               ],
-              verbose: true // Adiciona logs detalhados
+              verbose: true,
+              // Usa o client web que tem menos restrições (bypassa tipos desatualizados)
+              ...({ extractorArgs: 'youtube:player_client=web' } as Record<string, unknown>)
             });
             fastify.log.info(`yt-dlp resultado: ${JSON.stringify(result)}`);
           } catch (ytdlError) {

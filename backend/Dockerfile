@@ -16,6 +16,10 @@ RUN curl -fsSL https://github.com/denoland/deno/releases/latest/download/deno-x8
     && chmod +x /usr/local/bin/deno \
     && rm /tmp/deno.zip
 
+# Instala yt-dlp diretamente (versão mais recente) para garantir compatibilidade com YouTube
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+    && chmod a+rx /usr/local/bin/yt-dlp
+
 WORKDIR /app
 
 # 1. Copia os arquivos de definição de dependências
