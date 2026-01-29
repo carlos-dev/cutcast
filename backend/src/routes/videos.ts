@@ -155,12 +155,15 @@ export async function videosRoutes(
               // Headers mais realistas
               addHeader: [
                 'referer:https://www.youtube.com/',
-                'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'user-agent:Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
                 'accept-language:en-US,en;q=0.9'
               ],
               verbose: true,
-              // Usa o client web que tem menos restrições (bypassa tipos desatualizados)
-              ...({ extractorArgs: 'youtube:player_client=web' } as Record<string, unknown>)
+              // Usa player clients alternativos que têm menos restrições
+              ...({
+                extractorArgs: 'youtube:player_client=android,ios,mweb',
+                extractorRetries: 3
+              } as Record<string, unknown>)
             });
             fastify.log.info(`yt-dlp resultado: ${JSON.stringify(result)}`);
           } catch (ytdlError) {
