@@ -268,6 +268,57 @@ function processBufferLine(line: string, callbacks: StreamingCallbacks): void {
   }
 }
 
+// === TIKTOK SHARING TYPES ===
+
+export interface TikTokStatus {
+  connected: boolean;
+  isExpired?: boolean;
+  openId?: string;
+  connectedAt?: string;
+  updatedAt?: string;
+}
+
+export interface ShareTikTokResponse {
+  success: boolean;
+  message: string;
+  publishId?: string;
+  error?: string;
+}
+
+// === TIKTOK SHARING FUNCTIONS ===
+
+/**
+ * Verifica se o usuário tem conta TikTok vinculada
+ */
+export const getTikTokStatus = async (userId: string): Promise<TikTokStatus> => {
+  const response = await api.get<TikTokStatus>(`/auth/tiktok/status?userId=${userId}`);
+  return response.data;
+};
+
+/**
+ * Compartilha um vídeo no TikTok
+ * Retorna 403 com error: 'tiktok_not_connected' se não vinculado
+ */
+export const shareToTikTok = async (
+  userId: string,
+  videoUrl: string,
+  title?: string
+): Promise<ShareTikTokResponse> => {
+  const response = await api.post<ShareTikTokResponse>('/share/tiktok', {
+    userId,
+    videoUrl,
+    title,
+  });
+  return response.data;
+};
+
+/**
+ * Retorna a URL para conectar conta TikTok
+ */
+export const getTikTokConnectUrl = (userId: string): string => {
+  return `${API_BASE_URL}/auth/tiktok/connect?userId=${userId}`;
+};
+
 /**
  * Helper: Retorna mensagem amigável baseada no status
  */

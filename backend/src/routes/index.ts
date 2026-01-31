@@ -4,6 +4,7 @@ import { callbacksRoutes } from './callbacks';
 import { jobsRoutes } from './jobs';
 import { progressRoutes } from './progress';
 import { authRoutes } from './auth';
+import { shareRoutes } from './share';
 
 export async function registerRoutes(fastify: FastifyInstance) {
   // Endpoint GET / para informações sobre a API
@@ -21,6 +22,8 @@ export async function registerRoutes(fastify: FastifyInstance) {
         'GET /auth/tiktok/callback': 'Callback OAuth do TikTok',
         'GET /auth/tiktok/status': 'Verificar status da conta TikTok vinculada',
         'DELETE /auth/tiktok/disconnect': 'Desvincular conta TikTok',
+        'POST /share/tiktok': 'Compartilhar vídeo no TikTok',
+        'GET /share/tiktok/status/:publishId': 'Verificar status do compartilhamento',
         'GET /docs': 'Documentação Swagger'
       },
       note: 'Para acessar via ngrok sem o aviso, adicione o header: ngrok-skip-browser-warning: true'
@@ -33,5 +36,6 @@ export async function registerRoutes(fastify: FastifyInstance) {
   fastify.register(callbacksRoutes);
   fastify.register(progressRoutes);
   fastify.register(authRoutes);
+  fastify.register(shareRoutes);
 }
 

@@ -2,16 +2,36 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Download, Copy, Check, Hash } from "lucide-react";
+import { Download, Copy, Check, Hash, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { shareToTikTok, getTikTokConnectUrl } from "@/lib/api";
 import type { ResultItem } from "@/lib/api";
+import { AxiosError } from "axios";
+
+// TikTok Icon SVG
+function TikTokIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z" />
+    </svg>
+  );
+}
 
 interface ResultsGalleryProps {
   results: ResultItem[];
 }
 
 export function ResultsGallery({ results }: ResultsGalleryProps) {
+  const { user } = useAuth();
+
   if (!results || results.length === 0) {
     return null;
   }
@@ -34,7 +54,12 @@ export function ResultsGallery({ results }: ResultsGalleryProps) {
       {/* Grid responsivo: 1 coluna no mobile, 3 colunas no desktop */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10">
         {results.map((result, index) => (
-          <ResultCard key={`${result.videoUrl}-${index}`} result={result} index={index} />
+          <ResultCard
+            key={`${result.videoUrl}-${index}`}
+            result={result}
+            index={index}
+            userId={user?.id}
+          />
         ))}
       </div>
     </motion.div>
@@ -44,10 +69,13 @@ export function ResultsGallery({ results }: ResultsGalleryProps) {
 interface ResultCardProps {
   result: ResultItem;
   index: number;
+  userId?: string;
 }
 
-function ResultCard({ result, index }: ResultCardProps) {
+function ResultCard({ result, index, userId }: ResultCardProps) {
   const [copiedCaption, setCopiedCaption] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const { toast } = useToast();
 
   /**
    * Copia a legenda completa (caption + hashtags) para a área de transferência
@@ -60,6 +88,61 @@ function ResultCard({ result, index }: ResultCardProps) {
       setTimeout(() => setCopiedCaption(false), 2000);
     } catch (error) {
       console.error("Erro ao copiar legenda:", error);
+    }
+  };
+
+  /**
+   * Compartilha o vídeo no TikTok com Just-in-Time Auth
+   */
+  const handleShareToTikTok = async () => {
+    if (!userId) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Você precisa estar logado para compartilhar.",
+      });
+      return;
+    }
+
+    setIsSharing(true);
+
+    try {
+      const response = await shareToTikTok(userId, result.videoUrl, result.title);
+
+      if (response.success) {
+        toast({
+          title: "Enviado para o TikTok!",
+          description: response.message,
+        });
+      }
+    } catch (error) {
+      const axiosError = error as AxiosError<{ error: string; message?: string }>;
+
+      // Se o erro for 403 com tiktok_not_connected, redireciona para OAuth
+      if (axiosError.response?.status === 403) {
+        const errorCode = axiosError.response.data?.error;
+
+        if (errorCode === "tiktok_not_connected" || errorCode === "tiktok_token_expired") {
+          toast({
+            title: "Conecte sua conta TikTok",
+            description: "Você será redirecionado para autorizar o acesso.",
+          });
+
+          // Redireciona para OAuth após breve delay
+          setTimeout(() => {
+            window.location.href = getTikTokConnectUrl(userId);
+          }, 1500);
+          return;
+        }
+      }
+
+      toast({
+        variant: "destructive",
+        title: "Erro ao compartilhar",
+        description: axiosError.response?.data?.message || "Tente novamente mais tarde.",
+      });
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -118,6 +201,26 @@ function ResultCard({ result, index }: ResultCardProps) {
 
           {/* Botões de Ação */}
           <div className="flex flex-col gap-3 pt-3 mt-auto">
+            {/* Botão Postar no TikTok */}
+            <Button
+              size="default"
+              className="w-full bg-black hover:bg-gray-900 text-white transition-all hover:scale-[1.02]"
+              onClick={handleShareToTikTok}
+              disabled={isSharing}
+            >
+              {isSharing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Enviando...
+                </>
+              ) : (
+                <>
+                  <TikTokIcon className="h-4 w-4 mr-2" />
+                  Postar no TikTok
+                </>
+              )}
+            </Button>
+
             {/* Botão Copiar Legenda */}
             <Button
               variant="outline"
@@ -142,7 +245,8 @@ function ResultCard({ result, index }: ResultCardProps) {
             <Button
               asChild
               size="default"
-              className="w-full glow-primary transition-all hover:scale-[1.02]"
+              variant="outline"
+              className="w-full transition-all hover:scale-[1.02]"
             >
               <a href={result.videoUrl} download>
                 <Download className="h-4 w-4 mr-2" />
