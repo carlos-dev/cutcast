@@ -80,19 +80,19 @@ export async function authRoutes(
     // Verifica se houve erro na autorização
     if (error) {
       fastify.log.error(`Erro na autorização TikTok: ${error} - ${error_description}`);
-      return reply.redirect(`${FRONTEND_URL}/dashboard?tiktok_error=${encodeURIComponent(error_description || error)}`);
+      return reply.redirect(`${FRONTEND_URL}/?tiktok_error=${encodeURIComponent(error_description || error)}`);
     }
 
     if (!code || !state) {
       fastify.log.error('Callback TikTok sem code ou state');
-      return reply.redirect(`${FRONTEND_URL}/dashboard?tiktok_error=missing_params`);
+      return reply.redirect(`${FRONTEND_URL}/?tiktok_error=missing_params`);
     }
 
     // Extrai o userId do state
     const stateParts = state.split('|');
     if (stateParts.length !== 2) {
       fastify.log.error('State inválido no callback TikTok');
-      return reply.redirect(`${FRONTEND_URL}/dashboard?tiktok_error=invalid_state`);
+      return reply.redirect(`${FRONTEND_URL}/?tiktok_error=invalid_state`);
     }
 
     const userId = stateParts[1];
@@ -104,7 +104,7 @@ export async function authRoutes(
 
     if (!user) {
       fastify.log.error(`Usuário ${userId} não encontrado no callback TikTok`);
-      return reply.redirect(`${FRONTEND_URL}/dashboard?tiktok_error=user_not_found`);
+      return reply.redirect(`${FRONTEND_URL}/?tiktok_error=user_not_found`);
     }
 
     // Configurações do TikTok
@@ -114,7 +114,7 @@ export async function authRoutes(
 
     if (!clientKey || !clientSecret || !redirectUri) {
       fastify.log.error('Configurações TikTok incompletas');
-      return reply.redirect(`${FRONTEND_URL}/dashboard?tiktok_error=config_error`);
+      return reply.redirect(`${FRONTEND_URL}/?tiktok_error=config_error`);
     }
 
     try {
@@ -144,7 +144,7 @@ export async function authRoutes(
 
       if (tokenData.error || !tokenData.access_token) {
         fastify.log.error(`Erro ao obter tokens TikTok: ${tokenData.error} - ${tokenData.error_description}`);
-        return reply.redirect(`${FRONTEND_URL}/dashboard?tiktok_error=${encodeURIComponent(tokenData.error_description || tokenData.error || 'token_error')}`);
+        return reply.redirect(`${FRONTEND_URL}/?tiktok_error=${encodeURIComponent(tokenData.error_description || tokenData.error || 'token_error')}`);
       }
 
       // Calcula a data de expiração
@@ -223,7 +223,7 @@ export async function authRoutes(
 
     } catch (err) {
       fastify.log.error(`Erro ao processar callback TikTok: ${err}`);
-      return reply.redirect(`${FRONTEND_URL}/dashboard?tiktok_error=server_error`);
+      return reply.redirect(`${FRONTEND_URL}/?tiktok_error=server_error`);
     }
   });
 
