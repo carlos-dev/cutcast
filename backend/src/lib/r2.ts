@@ -72,3 +72,24 @@ export function extractFileNameFromUrl(url: string): string | null {
     return null;
   }
 }
+
+/**
+ * Helper: Extrai a key completa (incluindo subpastas) de uma URL pública do R2
+ * @param url URL pública do R2
+ * @returns Key completa ou null se URL inválida
+ * @example
+ * extractKeyFromUrl('https://pub-xxx.r2.dev/cuts/video.mp4') -> 'cuts/video.mp4'
+ * extractKeyFromUrl('https://pub-xxx.r2.dev/video.mp4') -> 'video.mp4'
+ */
+export function extractKeyFromUrl(url: string): string | null {
+  try {
+    const urlObj = new URL(url);
+    // Remove a barra inicial do pathname
+    const key = urlObj.pathname.startsWith('/')
+      ? urlObj.pathname.slice(1)
+      : urlObj.pathname;
+    return key || null;
+  } catch {
+    return null;
+  }
+}

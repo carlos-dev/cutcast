@@ -1,8 +1,34 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { prisma } from '../lib/prisma';
-import { r2Client, R2_BUCKET_NAME, extractFileNameFromUrl } from '../lib/r2';
+import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_DOMAIN, extractKeyFromUrl } from '../lib/r2';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
+
+/**
+ * Verifica se a URL é do R2 (domínio público configurado)
+ */
+function isR2Url(url: string): boolean {
+  if (!R2_PUBLIC_DOMAIN) return false;
+  try {
+    const urlObj = new URL(url);
+    const r2DomainObj = new URL(R2_PUBLIC_DOMAIN);
+    return urlObj.hostname === r2DomainObj.hostname;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Baixa um vídeo de uma URL externa
+ */
+async function downloadFromUrl(url: string): Promise<Buffer> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Falha ao baixar vídeo: ${response.status}`);
+  }
+  const arrayBuffer = await response.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
 
 // TikTok API URL
 const TIKTOK_UPLOAD_INIT_URL = 'https://open.tiktokapis.com/v2/post/publish/inbox/video/init/';
@@ -140,6 +166,8 @@ export async function shareRoutes(
     }
 
     // Busca a conta TikTok vinculada
+    fastify.log.info(`Buscando conta TikTok para userId: ${userId}`);
+
     const socialAccount = await prisma.socialAccount.findUnique({
       where: {
         userId_provider: {
@@ -151,11 +179,22 @@ export async function shareRoutes(
 
     // Se não tem conta vinculada, retorna 403 com código específico
     if (!socialAccount) {
+      fastify.log.warn(`Conta TikTok não encontrada para userId: ${userId}`);
+
+      // Lista todas as contas TikTok para debug
+      const allTikTokAccounts = await prisma.socialAccount.findMany({
+        where: { provider: 'tiktok' },
+        select: { userId: true, createdAt: true }
+      });
+      fastify.log.info(`Contas TikTok existentes: ${JSON.stringify(allTikTokAccounts)}`);
+
       return reply.code(403).send({
         error: 'tiktok_not_connected',
         message: 'Conta TikTok não vinculada. Conecte sua conta para compartilhar vídeos.'
       });
     }
+
+    fastify.log.info(`Conta TikTok encontrada: openId=${socialAccount.openId}`);
 
     // Verifica se o token está expirado e tenta renovar
     let accessToken = socialAccount.accessToken;
@@ -178,31 +217,41 @@ export async function shareRoutes(
     }
 
     try {
-      // 1. Baixa o vídeo do R2
-      const fileName = extractFileNameFromUrl(videoUrl);
+      // 1. Baixa o vídeo (do R2 ou de URL externa)
+      let videoBuffer: Buffer;
 
-      if (!fileName) {
-        return reply.code(400).send({
-          error: 'URL do vídeo inválida'
+      if (isR2Url(videoUrl)) {
+        // URL é do R2, usa S3 client
+        const fileName = extractKeyFromUrl(videoUrl);
+
+        if (!fileName) {
+          return reply.code(400).send({
+            error: 'URL do vídeo inválida'
+          });
+        }
+
+        fastify.log.info(`Baixando vídeo ${fileName} do R2...`);
+
+        const getCommand = new GetObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: fileName,
         });
+
+        const r2Response = await r2Client.send(getCommand);
+
+        if (!r2Response.Body) {
+          return reply.code(404).send({
+            error: 'Vídeo não encontrado no storage'
+          });
+        }
+
+        videoBuffer = await streamToBuffer(r2Response.Body as Readable);
+      } else {
+        // URL externa, usa fetch
+        fastify.log.info(`Baixando vídeo de URL externa: ${videoUrl}`);
+        videoBuffer = await downloadFromUrl(videoUrl);
       }
 
-      fastify.log.info(`Baixando vídeo ${fileName} do R2...`);
-
-      const getCommand = new GetObjectCommand({
-        Bucket: R2_BUCKET_NAME,
-        Key: fileName,
-      });
-
-      const r2Response = await r2Client.send(getCommand);
-
-      if (!r2Response.Body) {
-        return reply.code(404).send({
-          error: 'Vídeo não encontrado no storage'
-        });
-      }
-
-      const videoBuffer = await streamToBuffer(r2Response.Body as Readable);
       const videoSize = videoBuffer.length;
 
       fastify.log.info(`Vídeo baixado: ${videoSize} bytes`);
