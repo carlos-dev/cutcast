@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_DOMAIN, extractKeyFromUrl } from '../lib/r2';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
+import { getValidTikTokToken, TikTokTokenError } from '../services/tiktokService';
 
 /**
  * Verifica se a URL é do R2 (domínio público configurado)
@@ -61,73 +62,6 @@ async function streamToBuffer(stream: Readable): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-/**
- * Atualiza o access token usando o refresh token
- */
-async function refreshTikTokToken(
-  userId: string,
-  refreshToken: string,
-  fastify: FastifyInstance
-): Promise<string | null> {
-  const clientKey = process.env.TIKTOK_CLIENT_KEY;
-  const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
-
-  if (!clientKey || !clientSecret) {
-    return null;
-  }
-
-  try {
-    const response = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_key: clientKey,
-        client_secret: clientSecret,
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-      }).toString(),
-    });
-
-    const data = await response.json() as {
-      access_token?: string;
-      refresh_token?: string;
-      expires_in?: number;
-      error?: string;
-    };
-
-    if (data.error || !data.access_token) {
-      fastify.log.error(`Erro ao renovar token TikTok: ${data.error}`);
-      return null;
-    }
-
-    // Atualiza o token no banco
-    const expiresAt = data.expires_in
-      ? new Date(Date.now() + data.expires_in * 1000)
-      : null;
-
-    await prisma.socialAccount.update({
-      where: {
-        userId_provider: {
-          userId: userId,
-          provider: 'tiktok',
-        },
-      },
-      data: {
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token || refreshToken,
-        expiresAt: expiresAt,
-      },
-    });
-
-    return data.access_token;
-  } catch (err) {
-    fastify.log.error(`Erro ao renovar token TikTok: ${err}`);
-    return null;
-  }
-}
-
 export async function shareRoutes(
   fastify: FastifyInstance,
   _options: FastifyPluginOptions
@@ -165,55 +99,32 @@ export async function shareRoutes(
       });
     }
 
-    // Busca a conta TikTok vinculada
-    fastify.log.info(`Buscando conta TikTok para userId: ${userId}`);
+    // Obtém um token válido (renova automaticamente se necessário)
+    let accessToken: string;
+    try {
+      fastify.log.info(`Obtendo token TikTok válido para userId: ${userId}`);
+      accessToken = await getValidTikTokToken(userId);
+      fastify.log.info(`Token TikTok obtido com sucesso para userId: ${userId}`);
+    } catch (error) {
+      if (error instanceof TikTokTokenError) {
+        fastify.log.warn(`Erro de token TikTok [${error.code}]: ${error.message}`);
 
-    const socialAccount = await prisma.socialAccount.findUnique({
-      where: {
-        userId_provider: {
-          userId: userId,
-          provider: 'tiktok',
-        },
-      },
-    });
+        const statusCode = error.code === 'NOT_CONNECTED' ? 403 : 401;
+        const errorCode = error.code === 'NOT_CONNECTED'
+          ? 'tiktok_not_connected'
+          : 'tiktok_token_expired';
 
-    // Se não tem conta vinculada, retorna 403 com código específico
-    if (!socialAccount) {
-      fastify.log.warn(`Conta TikTok não encontrada para userId: ${userId}`);
-
-      // Lista todas as contas TikTok para debug
-      const allTikTokAccounts = await prisma.socialAccount.findMany({
-        where: { provider: 'tiktok' },
-        select: { userId: true, createdAt: true }
-      });
-      fastify.log.info(`Contas TikTok existentes: ${JSON.stringify(allTikTokAccounts)}`);
-
-      return reply.code(403).send({
-        error: 'tiktok_not_connected',
-        message: 'Conta TikTok não vinculada. Conecte sua conta para compartilhar vídeos.'
-      });
-    }
-
-    fastify.log.info(`Conta TikTok encontrada: openId=${socialAccount.openId}`);
-
-    // Verifica se o token está expirado e tenta renovar
-    let accessToken = socialAccount.accessToken;
-    const isExpired = socialAccount.expiresAt
-      ? new Date() > socialAccount.expiresAt
-      : false;
-
-    if (isExpired && socialAccount.refreshToken) {
-      fastify.log.info(`Token TikTok expirado para usuário ${userId}, renovando...`);
-      const newToken = await refreshTikTokToken(userId, socialAccount.refreshToken, fastify);
-
-      if (!newToken) {
-        return reply.code(403).send({
-          error: 'tiktok_token_expired',
-          message: 'Token TikTok expirado. Por favor, reconecte sua conta.'
+        return reply.code(statusCode).send({
+          error: errorCode,
+          message: error.message
         });
       }
 
-      accessToken = newToken;
+      fastify.log.error(`Erro inesperado ao obter token TikTok: ${error}`);
+      return reply.code(500).send({
+        error: 'server_error',
+        message: 'Erro ao verificar conexão com TikTok'
+      });
     }
 
     try {
@@ -357,19 +268,19 @@ export async function shareRoutes(
       });
     }
 
-    // Busca a conta TikTok vinculada
-    const socialAccount = await prisma.socialAccount.findUnique({
-      where: {
-        userId_provider: {
-          userId: userId,
-          provider: 'tiktok',
-        },
-      },
-    });
-
-    if (!socialAccount) {
-      return reply.code(403).send({
-        error: 'tiktok_not_connected'
+    // Obtém um token válido
+    let accessToken: string;
+    try {
+      accessToken = await getValidTikTokToken(userId);
+    } catch (error) {
+      if (error instanceof TikTokTokenError) {
+        return reply.code(403).send({
+          error: error.code === 'NOT_CONNECTED' ? 'tiktok_not_connected' : 'tiktok_token_expired',
+          message: error.message
+        });
+      }
+      return reply.code(500).send({
+        error: 'server_error'
       });
     }
 
@@ -379,7 +290,7 @@ export async function shareRoutes(
         {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${socialAccount.accessToken}`,
+            'Authorization': `Bearer ${accessToken}`,
           },
         }
       );
