@@ -320,6 +320,14 @@ export const getTikTokConnectUrl = (userId: string): string => {
 };
 
 /**
+ * Desconecta a conta TikTok do usuário
+ */
+export const disconnectTikTok = async (userId: string): Promise<{ success: boolean; message: string }> => {
+  const response = await api.delete<{ success: boolean; message: string }>(`/auth/tiktok/disconnect?userId=${userId}`);
+  return response.data;
+};
+
+/**
  * Helper: Retorna mensagem amigável baseada no status
  */
 export function getProgressMessage(data: StreamingProgress): string {
