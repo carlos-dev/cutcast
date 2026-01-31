@@ -77,11 +77,42 @@ export function Header() {
 
   const handleConnectTikTok = () => {
     if (!user?.id) return;
-    window.open(
+
+    // Abre em nova aba (mais confiável que popup)
+    const newWindow = window.open(
       getTikTokConnectUrl(user.id),
-      "tiktok-oauth",
-      "width=600,height=700,scrollbars=yes"
+      "_blank"
     );
+
+    // Se não conseguiu abrir (bloqueado), tenta redirect
+    if (!newWindow) {
+      window.location.href = getTikTokConnectUrl(user.id);
+      return;
+    }
+
+    // Polling para verificar quando a autenticação completar
+    const checkInterval = setInterval(async () => {
+      try {
+        // Verifica se a janela foi fechada
+        if (newWindow.closed) {
+          clearInterval(checkInterval);
+          // Verifica o status após fechar a janela
+          const status = await getTikTokStatus(user.id);
+          if (status.connected && !status.isExpired) {
+            setTiktokConnected(true);
+            toast({
+              title: "TikTok Conectado!",
+              description: "Sua conta TikTok foi vinculada com sucesso.",
+            });
+          }
+        }
+      } catch {
+        // Ignora erros de cross-origin
+      }
+    }, 1000);
+
+    // Limpa o intervalo após 5 minutos (timeout)
+    setTimeout(() => clearInterval(checkInterval), 5 * 60 * 1000);
   };
 
   const handleDisconnectTikTok = async () => {

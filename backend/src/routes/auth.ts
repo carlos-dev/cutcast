@@ -179,8 +179,47 @@ export async function authRoutes(
 
       fastify.log.info(`Conta TikTok vinculada com sucesso para usuário ${userId}`);
 
-      // Redireciona para o frontend com sucesso
-      return reply.redirect(`${FRONTEND_URL}/dashboard?tiktok_connected=true`);
+      // Retorna HTML que fecha a aba e notifica a janela principal
+      return reply
+        .header('Content-Type', 'text/html')
+        .send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>TikTok Conectado</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                text-align: center;
+              }
+              .container { padding: 2rem; }
+              .check { font-size: 4rem; margin-bottom: 1rem; }
+              h1 { margin: 0 0 0.5rem; }
+              p { opacity: 0.9; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="check">✓</div>
+              <h1>TikTok Conectado!</h1>
+              <p>Esta janela será fechada automaticamente...</p>
+            </div>
+            <script>
+              // Fecha a janela após 1.5 segundos
+              setTimeout(() => {
+                window.close();
+              }, 1500);
+            </script>
+          </body>
+          </html>
+        `);
 
     } catch (err) {
       fastify.log.error(`Erro ao processar callback TikTok: ${err}`);
