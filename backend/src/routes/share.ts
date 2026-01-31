@@ -276,7 +276,12 @@ export async function shareRoutes(
 
       const initData = await initResponse.json() as TikTokUploadInitResponse;
 
-      if (initData.error) {
+      // Log da resposta completa para debug
+      fastify.log.info(`Resposta TikTok init: ${JSON.stringify(initData)}`);
+
+      // Na API do TikTok, error.code === "ok" significa SUCESSO
+      // Verificamos se há erro real (código diferente de "ok")
+      if (initData.error && initData.error.code !== 'ok') {
         fastify.log.error(`Erro ao iniciar upload TikTok: ${initData.error.code} - ${initData.error.message}`);
         return reply.code(500).send({
           error: 'tiktok_upload_failed',
@@ -285,7 +290,7 @@ export async function shareRoutes(
       }
 
       if (!initData.data?.upload_url) {
-        fastify.log.error('Resposta inválida do TikTok (sem upload_url)');
+        fastify.log.error(`Resposta inválida do TikTok (sem upload_url): ${JSON.stringify(initData)}`);
         return reply.code(500).send({
           error: 'tiktok_upload_failed',
           message: 'Resposta inválida do TikTok'
