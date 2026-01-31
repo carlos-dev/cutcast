@@ -125,13 +125,17 @@ function ResultCard({ result, index, userId }: ResultCardProps) {
         if (errorCode === "tiktok_not_connected" || errorCode === "tiktok_token_expired") {
           toast({
             title: "Conecte sua conta TikTok",
-            description: "Você será redirecionado para autorizar o acesso.",
+            description: "Uma janela será aberta para autorizar o acesso.",
           });
 
-          // Redireciona para OAuth após breve delay
+          // Abre OAuth em popup para manter usuário na aplicação
           setTimeout(() => {
-            window.location.href = getTikTokConnectUrl(userId);
-          }, 1500);
+            window.open(
+              getTikTokConnectUrl(userId),
+              'tiktok-oauth',
+              'width=600,height=700,scrollbars=yes'
+            );
+          }, 1000);
           return;
         }
       }
