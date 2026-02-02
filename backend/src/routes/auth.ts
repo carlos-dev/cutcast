@@ -212,10 +212,10 @@ export async function authRoutes(
               <p>Esta janela será fechada automaticamente...</p>
             </div>
             <script>
-              // Fecha a janela após 1.5 segundos
+              // Fecha a janela após 3 segundos
               setTimeout(() => {
                 window.close();
-              }, 1500);
+              }, 3000);
             </script>
           </body>
           </html>
