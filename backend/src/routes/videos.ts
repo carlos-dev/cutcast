@@ -6,9 +6,14 @@ import os from 'os';
 import youtubedl from 'youtube-dl-exec';
 import { getVideoDurationInSeconds } from 'get-video-duration';
 
-// Calcula custo em créditos baseado na duração (1 crédito por hora ou fração)
+// Constantes de limite
+const MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024; // 1GB
+
+// Calcula custo em créditos baseado na duração (1 crédito a cada 30 minutos ou fração)
+// 0-30min: 1 crédito, 31-60min: 2 créditos, 61min+: 3 créditos
 function calculateCreditCost(durationSeconds: number): number {
-  return Math.ceil(durationSeconds / 3600);
+  const cost = Math.ceil(durationSeconds / 1800); // 1800s = 30min
+  return cost > 0 ? cost : 1; // Mínimo de 1 crédito
 }
 
 // Usa o binário do sistema se disponível (mais atualizado no Docker), senão usa o bundled
@@ -18,7 +23,10 @@ const ytdlp = fs.existsSync('/usr/local/bin/yt-dlp')
 
 import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { prisma } from '../lib/prisma';
-import { r2Client, R2_BUCKET_NAME, getPublicUrl, extractFileNameFromUrl } from '../lib/r2';
+import { r2Client, R2_BUCKET_NAME, getPublicUrl, extractKeyFromUrl } from '../lib/r2';
+
+// Prefixo para uploads de vídeos originais
+const R2_UPLOADS_PREFIX = 'uploads';
 import { MultipartFile } from '@fastify/multipart';
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 import {
@@ -105,13 +113,25 @@ export async function videosRoutes(
           const fileStats = fs.statSync(tempFilePath);
           fastify.log.info(`Tamanho do arquivo: ${(fileStats.size / 1024 / 1024).toFixed(2)} MB`);
 
+          // Valida tamanho máximo do arquivo (1GB)
+          if (fileStats.size > MAX_FILE_SIZE_BYTES) {
+            // Remove arquivo temporário antes de retornar erro
+            if (fs.existsSync(tempFilePath)) {
+              fs.unlinkSync(tempFilePath);
+            }
+            return reply.code(413).send({
+              error: 'file_too_large',
+              message: 'O arquivo excede o limite de 1GB.'
+            });
+          }
+
           // ========== CALCULA DURAÇÃO E CUSTO ==========
           try {
             videoDurationSeconds = await getVideoDurationInSeconds(tempFilePath);
             fastify.log.info(`Duração do vídeo: ${(videoDurationSeconds / 60).toFixed(2)} minutos`);
           } catch (durationError) {
             fastify.log.warn(`Não foi possível calcular duração: ${durationError}. Assumindo custo mínimo.`);
-            videoDurationSeconds = 3600; // Assume 1 hora se não conseguir calcular
+            videoDurationSeconds = 1800; // Assume 30 min se não conseguir calcular (1 crédito)
           }
 
           creditCost = calculateCreditCost(videoDurationSeconds);
@@ -134,9 +154,10 @@ export async function videosRoutes(
           const fileStream = fs.createReadStream(tempFilePath);
 
           // Faz upload para o Cloudflare R2 usando Stream
+          const r2Key = `${R2_UPLOADS_PREFIX}/${uniqueFileName}`;
           const putCommand = new PutObjectCommand({
             Bucket: R2_BUCKET_NAME,
-            Key: uniqueFileName,
+            Key: r2Key,
             Body: fileStream,
             ContentType: fileData.mimetype,
             ContentLength: fileStats.size
@@ -145,7 +166,7 @@ export async function videosRoutes(
           await r2Client.send(putCommand);
 
           // Gera a URL pública do arquivo
-          videoUrl = getPublicUrl(uniqueFileName);
+          videoUrl = getPublicUrl(r2Key);
           fastify.log.info(`Arquivo enviado com sucesso para R2: ${videoUrl}`);
 
         } catch (error) {
@@ -240,7 +261,7 @@ export async function videosRoutes(
             fastify.log.info(`Duração do vídeo: ${(videoDurationSeconds / 60).toFixed(2)} minutos`);
           } catch (durationError) {
             fastify.log.warn(`Não foi possível calcular duração: ${durationError}. Assumindo custo mínimo.`);
-            videoDurationSeconds = 3600; // Assume 1 hora se não conseguir calcular
+            videoDurationSeconds = 1800; // Assume 30 min se não conseguir calcular (1 crédito)
           }
 
           creditCost = calculateCreditCost(videoDurationSeconds);
@@ -261,6 +282,7 @@ export async function videosRoutes(
 
           // Gera nome único para o arquivo no R2
           const uniqueFileName = `${uuidv4()}.mp4`;
+          const r2Key = `${R2_UPLOADS_PREFIX}/${uniqueFileName}`;
 
           // Cria stream de leitura do arquivo (otimiza memória)
           const fileStream = fs.createReadStream(tempFilePath);
@@ -268,7 +290,7 @@ export async function videosRoutes(
           // Faz upload para R2 usando Stream
           const putCommand = new PutObjectCommand({
             Bucket: R2_BUCKET_NAME,
-            Key: uniqueFileName,
+            Key: r2Key,
             Body: fileStream,
             ContentType: 'video/mp4',
             ContentLength: fileStats.size
@@ -277,7 +299,7 @@ export async function videosRoutes(
           await r2Client.send(putCommand);
 
           // Gera URL pública do R2
-          videoUrl = getPublicUrl(uniqueFileName);
+          videoUrl = getPublicUrl(r2Key);
           fastify.log.info(`Vídeo enviado para R2: ${videoUrl}`);
 
         } catch (error) {
@@ -437,20 +459,20 @@ export async function videosRoutes(
         });
       }
 
-      // Extrai o nome do arquivo da URL do R2 e deleta do storage
+      // Extrai a key completa da URL do R2 e deleta do storage
       if (job.inputUrl) {
         try {
-          const fileName = extractFileNameFromUrl(job.inputUrl);
+          const r2Key = extractKeyFromUrl(job.inputUrl);
 
-          if (fileName) {
+          if (r2Key) {
             // Deleta o arquivo do Cloudflare R2
             const deleteCommand = new DeleteObjectCommand({
               Bucket: R2_BUCKET_NAME,
-              Key: fileName,
+              Key: r2Key,
             });
 
             await r2Client.send(deleteCommand);
-            fastify.log.info(`Arquivo ${fileName} deletado do R2`);
+            fastify.log.info(`Arquivo ${r2Key} deletado do R2`);
           }
         } catch (error) {
           fastify.log.warn(`Erro ao deletar arquivo do R2: ${error}`);
