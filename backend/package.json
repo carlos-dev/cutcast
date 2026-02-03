@@ -29,6 +29,7 @@
     "dotenv": "^17.2.3",
     "fastify": "^4.28.1",
     "prisma": "^5.22.0",
+    "stripe": "^20.3.0",
     "uuid": "^10.0.0",
     "youtube-dl-exec": "^3.0.29"
   },

@@ -5,6 +5,7 @@ import { jobsRoutes } from './jobs';
 import { progressRoutes } from './progress';
 import { authRoutes } from './auth';
 import { shareRoutes } from './share';
+import { paymentRoutes } from './payment';
 
 export async function registerRoutes(fastify: FastifyInstance) {
   // Endpoint GET / para informações sobre a API
@@ -24,6 +25,9 @@ export async function registerRoutes(fastify: FastifyInstance) {
         'DELETE /auth/tiktok/disconnect': 'Desvincular conta TikTok',
         'POST /share/tiktok': 'Compartilhar vídeo no TikTok',
         'GET /share/tiktok/status/:publishId': 'Verificar status do compartilhamento',
+        'POST /payment/checkout': 'Criar sessão de checkout para compra de créditos',
+        'POST /payment/webhook': 'Webhook do Stripe para processar pagamentos',
+        'GET /payment/credits': 'Consultar saldo de créditos do usuário',
         'GET /docs': 'Documentação Swagger'
       },
       note: 'Para acessar via ngrok sem o aviso, adicione o header: ngrok-skip-browser-warning: true'
@@ -37,5 +41,6 @@ export async function registerRoutes(fastify: FastifyInstance) {
   fastify.register(progressRoutes);
   fastify.register(authRoutes);
   fastify.register(shareRoutes);
+  fastify.register(paymentRoutes);
 }
 

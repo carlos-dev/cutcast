@@ -67,6 +67,22 @@ fastify.register(multipart, {
   }
 });
 
+// Adiciona parser customizado para preservar raw body (necessário para Stripe webhook)
+fastify.addContentTypeParser(
+  'application/json',
+  { parseAs: 'string' },
+  (req, body, done) => {
+    try {
+      // Preserva o raw body para validação do Stripe
+      (req as any).rawBody = body;
+      const json = body ? JSON.parse(body as string) : undefined;
+      done(null, json);
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  }
+);
+
 // Hook para adicionar header que evita o aviso do ngrok
 fastify.addHook('onRequest', async (request) => {
   // Adiciona header para pular o aviso do ngrok se não estiver presente
