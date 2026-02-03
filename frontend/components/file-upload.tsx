@@ -6,6 +6,10 @@ import { Upload, Video, X, Clock, Zap, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+
+// Constantes de limite
+const MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024; // 1GB
 
 export interface VideoDurationInfo {
   duration: number; // em segundos
@@ -22,10 +26,13 @@ export function FileUpload({ onFileSelect, disabled, userCredits }: FileUploadPr
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [durationInfo, setDurationInfo] = useState<VideoDurationInfo | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { toast } = useToast();
 
-  // Calcula custo baseado na duração (1 crédito por hora ou fração)
+  // Calcula custo baseado na duração (1 crédito a cada 30 minutos ou fração)
+  // 0-30min: 1 crédito, 31-60min: 2 créditos, 61min+: 3 créditos
   const calculateCost = (durationSeconds: number): number => {
-    return Math.ceil(durationSeconds / 3600);
+    const cost = Math.ceil(durationSeconds / 1800); // 1800s = 30min
+    return cost > 0 ? cost : 1; // Mínimo de 1 crédito
   };
 
   // Formata duração em minutos e segundos
@@ -59,6 +66,17 @@ export function FileUpload({ onFileSelect, disabled, userCredits }: FileUploadPr
     async (acceptedFiles: File[]) => {
       if (acceptedFiles[0]) {
         const file = acceptedFiles[0];
+
+        // Valida tamanho máximo do arquivo (1GB)
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+          toast({
+            variant: "destructive",
+            title: "Arquivo muito grande",
+            description: "O arquivo excede o limite de 1GB. Por favor, selecione um arquivo menor.",
+          });
+          return;
+        }
+
         setSelectedFile(file);
         setIsAnalyzing(true);
         setDurationInfo(null);
@@ -79,7 +97,7 @@ export function FileUpload({ onFileSelect, disabled, userCredits }: FileUploadPr
         }
       }
     },
-    [onFileSelect]
+    [onFileSelect, toast]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -189,7 +207,7 @@ export function FileUpload({ onFileSelect, disabled, userCredits }: FileUploadPr
                     : "Arraste um vídeo ou clique para selecionar"}
                 </p>
                 <p className="text-sm text-muted-foreground mt-2">
-                  MP4, MOV, AVI, MKV ou WEBM (máx. 500MB)
+                  MP4, MOV, AVI, MKV ou WEBM (máx. 1GB)
                 </p>
               </div>
             </motion.div>

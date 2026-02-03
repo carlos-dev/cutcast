@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   Scissors,
@@ -85,7 +86,7 @@ export default function LandingPage() {
     },
     {
       question: "Como funciona o consumo de créditos?",
-      answer: "O consumo é calculado por hora de vídeo. Cada crédito permite processar 1 hora (ou fração) do vídeo original. Exemplos: vídeo de 45min = 1 crédito, vídeo de 90min = 2 créditos, vídeo de 2h30 = 3 créditos."
+      answer: "O consumo é calculado a cada 30 minutos de vídeo. Cada crédito permite processar até 30 minutos do vídeo original. Exemplos: vídeo de 25min = 1 crédito, vídeo de 60min = 2 créditos, vídeo de 90min = 3 créditos."
     },
     {
       question: "Os créditos expiram?",
@@ -113,9 +114,7 @@ export default function LandingPage() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-[#0A0A0B]/80 backdrop-blur-lg border-b border-white/5">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center">
-              <Scissors className="h-4 w-4 text-white" />
-            </div>
+            <Image src="/logo.png" alt="CutCast" width={32} height={32} />
             <span className="font-bold text-lg">CutCast</span>
           </div>
           <Button onClick={handleCTAClick} size="sm">
@@ -240,7 +239,7 @@ export default function LandingPage() {
             <div className="inline-flex items-center gap-2 bg-[#1A1A1E]/50 border border-[#2A2A30]/50 rounded-xl px-6 py-3">
               <Zap className="h-4 w-4 text-amber-500" />
               <span className="text-sm text-muted-foreground">
-                1 Crédito = até 60 min de vídeo • Ex: 45 min = 1 crédito • 90 min = 2 créditos • 2h30 = 3 créditos
+                1 Crédito = até 30 min de vídeo • Ex: 25 min = 1 crédito • 45 min = 2 créditos • 90 min = 3 créditos
               </span>
             </div>
           </motion.div>
@@ -305,9 +304,7 @@ export default function LandingPage() {
         <div className="container mx-auto max-w-6xl">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center">
-                <Scissors className="h-4 w-4 text-white" />
-              </div>
+              <Image src="/logo.png" alt="CutCast" width={32} height={32} />
               <span className="font-bold text-lg">CutCast</span>
             </div>
             <nav className="flex items-center gap-8 text-sm text-muted-foreground">
