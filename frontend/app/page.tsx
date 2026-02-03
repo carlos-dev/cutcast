@@ -21,9 +21,11 @@ import {
   getJobs,
   setAuthToken,
   consumeProgressStream,
+  buyCredits,
   type StreamingProgress,
   type Job
 } from "@/lib/api";
+import { AxiosError } from "axios";
 import { createClient } from "@/lib/supabase/client";
 
 export default function Home() {
@@ -158,7 +160,26 @@ export default function Home() {
       // Inicia o streaming de progresso
       startProgressStream(data.job_id);
     },
-    onError: () => {
+    onError: (error: AxiosError<{ error?: string; message?: string }>) => {
+      // Verifica se é erro de créditos insuficientes (402)
+      if (error.response?.status === 402) {
+        toast({
+          variant: "destructive",
+          title: "Créditos Insuficientes",
+          description: "Você não tem créditos suficientes. Recarregue para continuar.",
+          action: user?.id ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => buyCredits(user.id, 10)}
+            >
+              Comprar Créditos
+            </Button>
+          ) : undefined,
+        });
+        return;
+      }
+
       toast({
         variant: "destructive",
         title: "Erro ao criar job",
@@ -182,7 +203,26 @@ export default function Home() {
       // Inicia o streaming de progresso
       startProgressStream(data.job_id);
     },
-    onError: () => {
+    onError: (error: AxiosError<{ error?: string; message?: string }>) => {
+      // Verifica se é erro de créditos insuficientes (402)
+      if (error.response?.status === 402) {
+        toast({
+          variant: "destructive",
+          title: "Créditos Insuficientes",
+          description: "Você não tem créditos suficientes. Recarregue para continuar.",
+          action: user?.id ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => buyCredits(user.id, 10)}
+            >
+              Comprar Créditos
+            </Button>
+          ) : undefined,
+        });
+        return;
+      }
+
       toast({
         variant: "destructive",
         title: "Erro ao fazer upload",

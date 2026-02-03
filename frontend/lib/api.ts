@@ -327,6 +327,39 @@ export const disconnectTikTok = async (userId: string): Promise<{ success: boole
   return response.data;
 };
 
+// === PAYMENT / CREDITS FUNCTIONS ===
+
+export interface CreditsResponse {
+  credits: number;
+}
+
+export interface CheckoutResponse {
+  url: string;
+}
+
+/**
+ * Busca o saldo de créditos do usuário
+ */
+export const getCredits = async (userId: string): Promise<number> => {
+  const response = await api.get<CreditsResponse>(`/payment/credits?userId=${userId}`);
+  return response.data.credits;
+};
+
+/**
+ * Cria sessão de checkout para compra de créditos
+ * Redireciona o usuário para a página do Stripe
+ */
+export const buyCredits = async (userId: string, quantity: number): Promise<void> => {
+  const response = await api.post<CheckoutResponse>('/payment/checkout', {
+    userId,
+    quantity
+  });
+
+  if (response.data.url) {
+    window.location.href = response.data.url;
+  }
+};
+
 /**
  * Helper: Retorna mensagem amigável baseada no status
  */

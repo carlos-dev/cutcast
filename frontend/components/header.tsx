@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Check, Loader2, Unlink } from "lucide-react";
 import { motion } from "framer-motion";
-import { getTikTokStatus, disconnectTikTok, getTikTokConnectUrl } from "@/lib/api";
+import { getTikTokStatus, disconnectTikTok, getTikTokConnectUrl, getCredits, buyCredits } from "@/lib/api";
+import { Zap, Plus } from "lucide-react";
 
 // TikTok Icon SVG
 function TikTokIcon({ className }: { className?: string }) {
@@ -29,41 +30,50 @@ export function Header() {
   const [isChecking, setIsChecking] = useState(true);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showDisconnect, setShowDisconnect] = useState(false);
+  const [credits, setCredits] = useState<number | null>(null);
+  const [showBuyCredits, setShowBuyCredits] = useState(false);
 
-  // Verifica status do TikTok ao carregar
+  // Verifica status do TikTok e créditos ao carregar
   useEffect(() => {
-    const checkTikTokStatus = async () => {
+    const checkStatus = async () => {
       if (!user?.id) {
         setIsChecking(false);
         return;
       }
 
       try {
-        const status = await getTikTokStatus(user.id);
-        setTiktokConnected(status.connected && !status.isExpired);
+        // Busca status do TikTok e créditos em paralelo
+        const [tiktokStatus, userCredits] = await Promise.all([
+          getTikTokStatus(user.id),
+          getCredits(user.id)
+        ]);
+
+        setTiktokConnected(tiktokStatus.connected && !tiktokStatus.isExpired);
+        setCredits(userCredits);
       } catch (error) {
-        console.error("Erro ao verificar status TikTok:", error);
+        console.error("Erro ao verificar status:", error);
         setTiktokConnected(false);
       } finally {
         setIsChecking(false);
       }
     };
 
-    checkTikTokStatus();
+    checkStatus();
   }, [user?.id]);
 
-  // Verifica parâmetros da URL (retorno do OAuth)
+  // Verifica parâmetros da URL (retorno do OAuth e Stripe)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const params = new URLSearchParams(window.location.search);
+
+    // TikTok OAuth callback
     if (params.get("tiktok_connected") === "true") {
       setTiktokConnected(true);
       toast({
         title: "TikTok Conectado!",
         description: "Sua conta TikTok foi vinculada com sucesso.",
       });
-      // Limpa os parâmetros da URL
       window.history.replaceState({}, "", window.location.pathname);
     } else if (params.get("tiktok_error")) {
       toast({
@@ -73,7 +83,27 @@ export function Header() {
       });
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }, [toast]);
+
+    // Stripe payment callback
+    if (params.get("success") === "true") {
+      toast({
+        title: "Pagamento Confirmado!",
+        description: "Seus créditos foram adicionados à sua conta.",
+      });
+      // Atualiza o saldo de créditos
+      if (user?.id) {
+        getCredits(user.id).then(setCredits).catch(console.error);
+      }
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (params.get("canceled") === "true") {
+      toast({
+        variant: "destructive",
+        title: "Pagamento Cancelado",
+        description: "O pagamento foi cancelado.",
+      });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [toast, user?.id]);
 
   const handleConnectTikTok = () => {
     if (!user?.id) return;
@@ -164,6 +194,64 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Credits Display */}
+          {credits !== null && (
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-amber-600 hover:text-amber-700"
+                onClick={() => setShowBuyCredits(!showBuyCredits)}
+              >
+                <Zap className="h-4 w-4 fill-current" />
+                <span className="font-semibold">{credits}</span>
+                <Plus className="h-3 w-3" />
+              </Button>
+
+              {/* Dropdown de compra de créditos */}
+              {showBuyCredits && (
+                <div className="absolute right-0 top-full mt-1 bg-background border rounded-md shadow-lg p-3 min-w-[200px] z-50">
+                  <p className="text-sm font-medium mb-2">Comprar Créditos</p>
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-between"
+                      onClick={() => {
+                        if (user?.id) buyCredits(user.id, 5);
+                      }}
+                    >
+                      <span>5 créditos</span>
+                      <span className="text-muted-foreground">$5.00</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-between"
+                      onClick={() => {
+                        if (user?.id) buyCredits(user.id, 10);
+                      }}
+                    >
+                      <span>10 créditos</span>
+                      <span className="text-muted-foreground">$10.00</span>
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full justify-between"
+                      onClick={() => {
+                        if (user?.id) buyCredits(user.id, 20);
+                      }}
+                    >
+                      <span>20 créditos</span>
+                      <span>$20.00</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* TikTok Status/Connect Button */}
           {isChecking ? (
             <Button variant="ghost" size="sm" disabled>
@@ -227,11 +315,14 @@ export function Header() {
         </div>
       </div>
 
-      {/* Overlay para fechar dropdown */}
-      {showDisconnect && (
+      {/* Overlay para fechar dropdowns */}
+      {(showDisconnect || showBuyCredits) && (
         <div
           className="fixed inset-0 z-40"
-          onClick={() => setShowDisconnect(false)}
+          onClick={() => {
+            setShowDisconnect(false);
+            setShowBuyCredits(false);
+          }}
         />
       )}
     </motion.header>

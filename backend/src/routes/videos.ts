@@ -32,6 +32,24 @@ export async function videosRoutes(
     schema: createVideoJobSchema
   }, async (request, reply) => {
     try {
+      // Pega o userId do token autenticado
+      const { userId } = request as AuthenticatedRequest;
+
+      // ========== VERIFICAÇÃO DE CRÉDITOS ==========
+      // Verifica se o usuário tem créditos disponíveis ANTES de processar
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { credits: true }
+      });
+
+      if (!user || user.credits <= 0) {
+        return reply.code(402).send({
+          error: 'insufficient_credits',
+          message: 'Saldo insuficiente. Por favor, recarregue seus créditos.'
+        });
+      }
+      // =============================================
+
       let videoUrl: string;
       let withSubtitles: boolean = true; // Valor padrão
 
@@ -237,9 +255,6 @@ export async function videosRoutes(
         });
       }
 
-      // Pega o userId do token autenticado
-      const { userId } = request as AuthenticatedRequest;
-
       // Gera um ID único para o job
       const jobId = uuidv4();
 
@@ -276,13 +291,25 @@ export async function videosRoutes(
       }
 
       // Só cria o job no banco se o n8n respondeu com sucesso
-      const job = await prisma.job.create({
-        data: {
-          id: jobId,
-          userId: userId,
-          inputUrl: videoUrl,
-          status: 'PENDING'
-        }
+      // Usa transação para criar job E decrementar crédito atomicamente
+      const job = await prisma.$transaction(async (tx) => {
+        // Decrementa 1 crédito do usuário
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            credits: { decrement: 1 }
+          }
+        });
+
+        // Cria o job
+        return tx.job.create({
+          data: {
+            id: jobId,
+            userId: userId,
+            inputUrl: videoUrl,
+            status: 'PENDING'
+          }
+        });
       });
 
       // Retorna os dados do job criado
