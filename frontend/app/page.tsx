@@ -1,481 +1,377 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Link2, Upload, Captions } from "lucide-react";
-import { Header } from "@/components/header";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { FileUpload, type VideoDurationInfo } from "@/components/file-upload";
-import { JobStatusCard } from "@/components/job-status-card";
-import { VideoHistory } from "@/components/video-history";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth";
 import {
-  createJobWithUrl,
-  createJobWithFile,
-  getJobStatus,
-  getJobs,
-  setAuthToken,
-  consumeProgressStream,
-  buyCredits,
-  getCredits,
-  type StreamingProgress,
-  type Job
-} from "@/lib/api";
-import { AxiosError } from "axios";
-import { createClient } from "@/lib/supabase/client";
+  Scissors,
+  Zap,
+  CreditCard,
+  Play,
+  Twitter,
+  Instagram,
+  Youtube,
+  Mail
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
+import { AuthModal } from "@/components/auth-modal";
+import {
+  FAQItem,
+  PricingCard,
+  FeatureCard,
+  HeroVisualFlow,
+  HeroDecorations,
+  FeaturesDecorations,
+  PricingDecorations,
+  FAQDecorations
+} from "@/components/landing";
 
-export default function Home() {
-  const [videoUrl, setVideoUrl] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
-  const [withSubtitles, setWithSubtitles] = useState(true);
-
-  // Estado do streaming de progresso
-  const [streamingProgress, setStreamingProgress] = useState<StreamingProgress | null>(null);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Estado de créditos e custo do vídeo
-  const [userCredits, setUserCredits] = useState<number | null>(null);
-  const [videoCost, setVideoCost] = useState<number>(1);
-
-  const { toast } = useToast();
+export default function LandingPage() {
+  const [openFAQ, setOpenFAQ] = useState<number | null>(0);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const { user } = useAuth();
-  const supabase = createClient();
-  const queryClient = useQueryClient();
+  const router = useRouter();
 
-  // Busca créditos do usuário
-  useEffect(() => {
-    const fetchCredits = async () => {
-      if (user?.id) {
-        try {
-          const credits = await getCredits(user.id);
-          setUserCredits(credits);
-        } catch (error) {
-          console.error("Erro ao buscar créditos:", error);
-        }
-      }
-    };
-    fetchCredits();
-  }, [user?.id]);
-
-  // Configura o token de autenticação quando o usuário estiver logado
-  useEffect(() => {
-    const setupAuth = async () => {
-      if (user) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          setAuthToken(session.access_token);
-        }
-      } else {
-        setAuthToken(null);
-      }
-    };
-
-    setupAuth();
-  }, [user, supabase.auth]);
-
-  // Função para iniciar o streaming de progresso
-  const startProgressStream = useCallback((jobId: string) => {
-    // Cancela qualquer stream anterior
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    setIsStreaming(true);
-    setStreamingProgress(null);
-
-    consumeProgressStream(jobId, {
-      onProgress: (data) => {
-        setStreamingProgress(data);
-      },
-      onComplete: (data) => {
-        setStreamingProgress(data);
-        setIsStreaming(false);
-        // Invalida queries para atualizar dados
-        queryClient.invalidateQueries({ queryKey: ["job", jobId] });
-        queryClient.invalidateQueries({ queryKey: ["jobs"] });
-        toast({
-          title: "Processamento concluído!",
-          description: "Seus cortes estão prontos.",
-        });
-      },
-      onError: (error) => {
-        setStreamingProgress({
-          status: 'error',
-          progress: 0,
-          error: error
-        });
-        setIsStreaming(false);
-        toast({
-          variant: "destructive",
-          title: "Erro no processamento",
-          description: error,
-        });
-      }
-    }, controller);
-  }, [queryClient, toast]);
-
-  // Cleanup do stream quando componente desmontar
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
-
-  // Verifica se há jobs em andamento ao carregar a página (reconexão após reload)
-  useEffect(() => {
-    const checkPendingJobs = async () => {
-      // Espera o token estar configurado
-      if (!user) return;
-
-      // Garante que o token está configurado antes de fazer a requisição
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) return;
-      setAuthToken(session.access_token);
-
-      try {
-        const jobs = await getJobs();
-
-        // Encontra o job mais recente que está em processamento
-        const pendingJob = jobs?.find(
-          (job: Job) => job.status === 'PENDING' || job.status === 'PROCESSING'
-        );
-
-        if (pendingJob && !isStreaming && !currentJobId) {
-          const jobId = pendingJob.id || pendingJob.job_id;
-          if (jobId) {
-            setCurrentJobId(jobId);
-            startProgressStream(jobId);
-          }
-        }
-      } catch (_) {}
-    };
-
-    checkPendingJobs();
-  }, [user, supabase.auth, isStreaming, currentJobId, startProgressStream]);
-
-  // Mutation para criar job via URL
-  const urlMutation = useMutation({
-    mutationFn: ({ videoUrl, withSubtitles }: { videoUrl: string; withSubtitles: boolean }) =>
-      createJobWithUrl(videoUrl, withSubtitles),
-    onSuccess: (data) => {
-      setCurrentJobId(data.job_id);
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      toast({
-        title: "Job criado!",
-        description: "Conectando ao stream de progresso...",
-      });
-      setVideoUrl("");
-      // Inicia o streaming de progresso
-      startProgressStream(data.job_id);
-    },
-    onError: (error: AxiosError<{ error?: string; message?: string }>) => {
-      // Verifica se é erro de créditos insuficientes (402)
-      if (error.response?.status === 402) {
-        toast({
-          variant: "destructive",
-          title: "Créditos Insuficientes",
-          description: "Você não tem créditos suficientes. Recarregue para continuar.",
-          action: user?.id ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => buyCredits(user.id, 10)}
-            >
-              Comprar Créditos
-            </Button>
-          ) : undefined,
-        });
-        return;
-      }
-
-      toast({
-        variant: "destructive",
-        title: "Erro ao criar job",
-        description: "Verifique a URL e tente novamente.",
-      });
-    },
-  });
-
-  // Mutation para criar job via upload
-  const fileMutation = useMutation({
-    mutationFn: ({ file, withSubtitles }: { file: File; withSubtitles: boolean }) =>
-      createJobWithFile(file, withSubtitles),
-    onSuccess: (data) => {
-      setCurrentJobId(data.job_id);
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      toast({
-        title: "Upload concluído!",
-        description: "Conectando ao stream de progresso...",
-      });
-      setSelectedFile(null);
-      // Inicia o streaming de progresso
-      startProgressStream(data.job_id);
-    },
-    onError: (error: AxiosError<{ error?: string; message?: string }>) => {
-      // Verifica se é erro de créditos insuficientes (402)
-      if (error.response?.status === 402) {
-        toast({
-          variant: "destructive",
-          title: "Créditos Insuficientes",
-          description: "Você não tem créditos suficientes. Recarregue para continuar.",
-          action: user?.id ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => buyCredits(user.id, 10)}
-            >
-              Comprar Créditos
-            </Button>
-          ) : undefined,
-        });
-        return;
-      }
-
-      toast({
-        variant: "destructive",
-        title: "Erro ao fazer upload",
-        description: "Tente novamente ou use uma URL.",
-      });
-    },
-  });
-
-  // Define isLoading baseado no status das mutations
-  const isLoading = urlMutation.isPending || fileMutation.isPending;
-
-  // Query para polling do status do job (fallback quando streaming não está ativo)
-  const { data: jobData } = useQuery({
-    queryKey: ["job", currentJobId],
-    queryFn: () => getJobStatus(currentJobId!),
-    enabled: !!currentJobId && !isStreaming, // Desabilita polling durante streaming
-    refetchInterval: (query) => {
-      const job = query.state.data;
-      // Se status for PENDING ou PROCESSING e não estiver streaming, refetch a cada 5 segundos
-      if (!isStreaming && (job?.status === "PENDING" || job?.status === "PROCESSING")) {
-        return 5000;
-      }
-      return false;
-    },
-  });
-
-  // Texto do botão baseado no estado
-  const getButtonText = () => {
-    if (isLoading) {
-      return "Enviando...";
-    }
-    if (isStreaming && streamingProgress) {
-      return `${streamingProgress.progress}% - ${getStatusLabel(streamingProgress.status)}`;
-    }
-    return "Gerar Cortes";
-  };
-
-  const getStatusLabel = (status: StreamingProgress['status']) => {
-    switch (status) {
-      case 'downloading': return 'Baixando';
-      case 'transcribing': return 'Transcrevendo áudio';
-      case 'analyzing': return 'IA analisando';
-      case 'rendering': return 'Gerando cortes';
-      case 'uploading': return 'Finalizando';
-      case 'completed': return 'Concluído';
-      default: return 'Processando';
+  const handleCTAClick = () => {
+    if (user) {
+      router.push("/dashboard");
+    } else {
+      setShowAuthModal(true);
     }
   };
 
-  const handleUrlSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!videoUrl.trim()) return;
-    urlMutation.mutate({ videoUrl, withSubtitles });
-  };
-
-  const handleFileSubmit = () => {
-    if (!selectedFile) return;
-    fileMutation.mutate({ file: selectedFile, withSubtitles });
-  };
-
-  const isDisabled = isLoading || isStreaming;
+  const faqs = [
+    {
+      question: "Preciso pagar mensalidade?",
+      answer: "Não! O CutCast é 100% pré-pago. Você compra créditos e usa quando quiser. Sem cobranças surpresa no cartão."
+    },
+    {
+      question: "Como funciona o consumo de créditos?",
+      answer: "O consumo é calculado por hora de vídeo. Cada crédito permite processar 1 hora (ou fração) do vídeo original. Exemplos: vídeo de 45min = 1 crédito, vídeo de 90min = 2 créditos, vídeo de 2h30 = 3 créditos."
+    },
+    {
+      question: "Os créditos expiram?",
+      answer: "Nunca. Seus créditos ficam na conta para sempre até você decidir usá-los."
+    },
+    {
+      question: "Funciona com links do YouTube?",
+      answer: "Sim! Você pode colar links do YouTube ou fazer upload de arquivos do seu computador (mp4, mov, avi, mkv, webm)."
+    },
+    {
+      question: "Qual a política de reembolso?",
+      answer: "Reembolso total em até 7 dias para créditos não utilizados. Se houve falha técnica, analisamos cada caso para estorno ou reposição."
+    }
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background to-background/50">
-      <Header />
+    <div className="min-h-screen bg-[#0A0A0B] text-white overflow-x-hidden">
+      {/* Global Decorative Glows */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-[300px] -left-[200px] w-[600px] h-[600px] bg-primary/20 rounded-full blur-[150px] opacity-30" />
+        <div className="absolute top-[200px] -right-[200px] w-[500px] h-[500px] bg-indigo-500/20 rounded-full blur-[150px] opacity-25" />
+      </div>
+
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-[#0A0A0B]/80 backdrop-blur-lg border-b border-white/5">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center">
+              <Scissors className="h-4 w-4 text-white" />
+            </div>
+            <span className="font-bold text-lg">CutCast</span>
+          </div>
+          <Button onClick={handleCTAClick} size="sm">
+            {user ? 'Ir para Dashboard' : 'Começar Agora'}
+          </Button>
+        </div>
+      </header>
+
       {/* Hero Section */}
-      <section className="container mx-auto px-4 pt-20 pb-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center space-y-6 max-w- mx-auto"
-        >
-          <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
-            Transforme seus vídeos em
-            <span className="gradient-text">
-              {" "}
-              Clipes Virais
-            </span>
-          </h1>
+      <section className="relative pt-32 pb-20 px-6 overflow-hidden">
+        <HeroDecorations />
 
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            IA de ponta para converter vídeos longos em clipes verticais perfeitos para
-            TikTok, Reels e Shorts. Automático, rápido e profissional.
-          </p>
-        </motion.div>
-      </section>
-
-      {/* Input Section */}
-      <section className="container mx-auto px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="max-w-5xl mx-auto"
-        >
-          <Card className="p-6 backdrop-blur-sm bg-card/80 border-2 card-glow">
-            <Tabs defaultValue="url" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="url" className="gap-2">
-                  <Link2 className="h-4 w-4" />
-                  Colar Link
-                </TabsTrigger>
-                <TabsTrigger value="upload" className="gap-2">
-                  <Upload className="h-4 w-4" />
-                  Upload
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Toggle de Legendas */}
-              <div className="mb-6 p-4 rounded-lg border border-border bg-muted/30">
-                <label className="flex items-center justify-between cursor-pointer group">
-                  <div className="flex items-center gap-3">
-                    <Captions className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium text-sm">Gerar Legendas</p>
-                      <p className="text-xs text-muted-foreground">
-                        Adicionar legendas automáticas aos cortes
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={withSubtitles}
-                    onClick={() => setWithSubtitles(!withSubtitles)}
-                    className={`
-                      relative inline-flex h-6 w-11 items-center rounded-full transition-colors
-                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
-                      ${withSubtitles ? 'bg-primary' : 'bg-input'}
-                    `}
-                  >
-                    <span
-                      className={`
-                        inline-block h-4 w-4 transform rounded-full bg-background transition-transform
-                        ${withSubtitles ? 'translate-x-6' : 'translate-x-1'}
-                      `}
-                    />
-                  </button>
-                </label>
-              </div>
-
-              <TabsContent value="url" className="space-y-4">
-                <form onSubmit={handleUrlSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Input
-                      type="url"
-                      placeholder="Cole aqui o link do YouTube, Vimeo ou qualquer vídeo..."
-                      value={videoUrl}
-                      onChange={(e) => setVideoUrl(e.target.value)}
-                      disabled={isDisabled}
-                      className="h-12 text-base"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    size="lg"
-                    className="w-full glow-primary transition-all hover:scale-[1.02]"
-                    disabled={isDisabled || !videoUrl.trim()}
-                  >
-                    {getButtonText()}
-                  </Button>
-                </form>
-              </TabsContent>
-
-              <TabsContent value="upload" className="space-y-4">
-                <FileUpload
-                  onFileSelect={(file, durationInfo) => {
-                    setSelectedFile(file);
-                    if (durationInfo) {
-                      setVideoCost(durationInfo.cost);
-                    }
-                  }}
-                  disabled={isDisabled}
-                  userCredits={userCredits ?? undefined}
-                />
-                <Button
-                  size="lg"
-                  className="w-full glow-primary transition-all hover:scale-[1.02]"
-                  onClick={handleFileSubmit}
-                  disabled={isDisabled || !selectedFile || (userCredits !== null && userCredits < videoCost)}
-                >
-                  {isLoading ? "Enviando..." : `Processar Vídeo (${videoCost} crédito${videoCost > 1 ? 's' : ''})`}
-                </Button>
-              </TabsContent>
-            </Tabs>
-          </Card>
-        </motion.div>
-      </section>
-
-      {/* Job Status Section */}
-      {(jobData || (isStreaming && streamingProgress)) && (
-        <section className="w-full px-4 py-12">
-          <div className="mx-auto" style={{ maxWidth: "1600px" }}>
-            <JobStatusCard
-              job={jobData || { status: "PROCESSING" }}
-              streamingProgress={streamingProgress}
-              isStreaming={isStreaming}
-            />
-          </div>
-        </section>
-      )}
-
-      {/* Video History Section */}
-      <section className="container mx-auto px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="max-w-5xl mx-auto"
-        >
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold">Histórico de Vídeos</h2>
-            <p className="text-muted-foreground mt-1">
-              Acompanhe todos os seus vídeos processados
+        <div className="container mx-auto max-w-6xl relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+              Transforme Vídeos Longos em{' '}
+              <span className="bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
+                Cortes Virais com IA
+              </span>
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 leading-relaxed">
+              A ferramenta mais simples para criar cortes virais. Sem editores complexos,
+              sem botões desnecessários. Apenas cole o link e receba seus vídeos prontos para o TikTok.
             </p>
+            <Button
+              size="lg"
+              className="glow-primary text-base px-8 py-6"
+              onClick={handleCTAClick}
+            >
+              <Play className="h-5 w-5 mr-2" />
+              Testar Grátis
+            </Button>
+          </motion.div>
+
+          <HeroVisualFlow />
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-20 px-6 relative overflow-hidden">
+        <FeaturesDecorations />
+
+        <div className="container mx-auto max-w-6xl relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <span className="inline-block bg-primary/10 border border-primary/30 text-primary text-sm font-medium px-4 py-2 rounded-full mb-4">
+              Por que escolher o CutCast?
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Simplicidade que Converte</h2>
+            <p className="text-muted-foreground max-w-xl mx-auto">
+              A inteligência complexa fica com a nossa IA. Para você, sobra apenas o clique.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+            >
+              <FeatureCard
+                icon={Scissors}
+                title="Zero Curva de Aprendizado"
+                description="Feito para quem não é editor. Interface limpa e direta ao ponto. Não perca tempo configurando mil parâmetros."
+              />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <FeatureCard
+                icon={Zap}
+                title="Agilidade Real"
+                description="Do link ao rascunho do TikTok em poucos minutos. Integração direta que elimina o trabalho manual de baixar e subir arquivos."
+              />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              <FeatureCard
+                icon={CreditCard}
+                title="Preço Transparente"
+                description="Sem assinaturas mensais obrigatórias. Pague em Reais (R$) e apenas quando precisar usar. Simples assim."
+              />
+            </motion.div>
           </div>
-          <VideoHistory />
-        </motion.div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="py-20 px-6 relative bg-gradient-to-b from-[#0D0D0F] to-[#131316] overflow-hidden">
+        <PricingDecorations />
+
+        <div className="container mx-auto max-w-5xl relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <span className="inline-block bg-green-500/10 border border-green-500/30 text-green-400 text-sm font-medium px-4 py-2 rounded-full mb-4">
+              Transparência Total
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Pague Apenas o que Usar</h2>
+            <p className="text-muted-foreground">
+              Sem mensalidades. Sem taxas ocultas. Créditos que nunca expiram.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+            >
+              <PricingCard
+                title="Experimentar"
+                price="10"
+                credits={5}
+                features={[
+                  "5 Créditos",
+                  "~R$ 2,00 por vídeo",
+                  "Legendas automáticas"
+                ]}
+                onSelect={handleCTAClick}
+              />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <PricingCard
+                title="Criador Pro"
+                price="25"
+                credits={15}
+                features={[
+                  "15 Créditos",
+                  "~R$ 1,67 por vídeo",
+                  "Legendas automáticas"
+                ]}
+                highlighted
+                onSelect={handleCTAClick}
+              />
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+            >
+              <PricingCard
+                title="Power User"
+                price="50"
+                credits={40}
+                features={[
+                  "40 Créditos",
+                  "~R$ 1,25 por vídeo",
+                  "Legendas automáticas"
+                ]}
+                onSelect={handleCTAClick}
+              />
+            </motion.div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center"
+          >
+            <div className="inline-flex items-center gap-2 bg-[#1A1A1E]/50 border border-[#2A2A30]/50 rounded-xl px-6 py-3">
+              <Zap className="h-4 w-4 text-amber-500" />
+              <span className="text-sm text-muted-foreground">
+                1 Crédito = até 60 min de vídeo • Ex: 45 min = 1 crédito • 90 min = 2 créditos • 2h30 = 3 créditos
+              </span>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="py-20 px-6 relative overflow-hidden">
+        <FAQDecorations />
+
+        <div className="container mx-auto max-w-3xl relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-12"
+          >
+            <span className="inline-block bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-sm font-medium px-4 py-2 rounded-full mb-4">
+              Tire suas dúvidas
+            </span>
+            <h2 className="text-3xl md:text-4xl font-bold">Perguntas Frequentes</h2>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="space-y-4"
+          >
+            {faqs.map((faq, index) => (
+              <FAQItem
+                key={index}
+                question={faq.question}
+                answer={faq.answer}
+                isOpen={openFAQ === index}
+                onClick={() => setOpenFAQ(openFAQ === index ? null : index)}
+              />
+            ))}
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mt-12"
+          >
+            <a
+              href="mailto:suporte@cutcast.com.br"
+              className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors rounded-xl px-6 py-3"
+            >
+              <Mail className="h-4 w-4" />
+              Precisa de ajuda? suporte@cutcast.com.br
+            </a>
+          </motion.div>
+        </div>
       </section>
 
       {/* Footer */}
-      <footer className="container mx-auto px-4 py-12 text-center text-sm text-muted-foreground">
-        <p>© 2026 CutCast. Transformando conteúdo em viralidade.</p>
-        <div className="mt-2 space-x-4">
-          <a href="/terms" className="hover:text-foreground transition-colors">
-            Termos de Uso
-          </a>
-          <a href="/privacy" className="hover:text-foreground transition-colors">
-            Privacidade
-          </a>
+      <footer className="py-12 px-6 border-t border-white/5 bg-[#08080A]">
+        <div className="container mx-auto max-w-6xl">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-indigo-500 flex items-center justify-center">
+                <Scissors className="h-4 w-4 text-white" />
+              </div>
+              <span className="font-bold text-lg">CutCast</span>
+            </div>
+            <nav className="flex items-center gap-8 text-sm text-muted-foreground">
+              <a href="/terms" className="hover:text-white transition-colors">Termos de Uso</a>
+              <a href="/privacy" className="hover:text-white transition-colors">Política de Privacidade</a>
+              <a href="mailto:suporte@cutcast.com.br" className="hover:text-white transition-colors">Suporte</a>
+            </nav>
+          </div>
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-white/5">
+            <p className="text-sm text-muted-foreground">
+              © 2026 CutCast. Transformando conteúdo em viralidade.
+            </p>
+            <div className="flex items-center gap-4">
+              <a href="#" className="text-muted-foreground hover:text-white transition-colors">
+                <Twitter className="h-5 w-5" />
+              </a>
+              <a href="#" className="text-muted-foreground hover:text-white transition-colors">
+                <Instagram className="h-5 w-5" />
+              </a>
+              <a href="#" className="text-muted-foreground hover:text-white transition-colors">
+                <Youtube className="h-5 w-5" />
+              </a>
+            </div>
+          </div>
         </div>
       </footer>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 }

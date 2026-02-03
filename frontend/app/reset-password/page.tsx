@@ -22,16 +22,16 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [hasSession, setHasSession] = useState<boolean | null>(null);
-  const { updatePassword, user, loading } = useAuth();
+  const { updatePassword, user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
 
   // Verifica se o usuário tem uma sessão válida (veio do link do email)
   useEffect(() => {
-    if (!loading) {
+    if (!authLoading) {
       setHasSession(!!user);
     }
-  }, [user, loading]);
+  }, [user, authLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +80,7 @@ export default function ResetPasswordPage() {
   };
 
   // Loading state
-  if (loading || hasSession === null) {
+  if (authLoading || hasSession === null) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />

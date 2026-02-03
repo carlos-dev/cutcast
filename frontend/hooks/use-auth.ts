@@ -64,7 +64,7 @@ export function useAuth() {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (!error) {
-      router.push("/login");
+      router.push("/");
       router.refresh();
     }
     return { error };
@@ -86,7 +86,7 @@ export function useAuth() {
 
   return {
     user,
-    loading,
+    isLoading: loading,
     signUp,
     signIn,
     signOut,
