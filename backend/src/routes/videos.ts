@@ -500,6 +500,7 @@ export async function videosRoutes(
     }
   });
 
+  
   // Endpoint GET /videos/:id para consultar status
   fastify.get('/videos/:id', {
     schema: getVideoJobSchema
