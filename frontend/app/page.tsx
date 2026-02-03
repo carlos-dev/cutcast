@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { FileUpload } from "@/components/file-upload";
+import { FileUpload, type VideoDurationInfo } from "@/components/file-upload";
 import { JobStatusCard } from "@/components/job-status-card";
 import { VideoHistory } from "@/components/video-history";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,7 @@ import {
   setAuthToken,
   consumeProgressStream,
   buyCredits,
+  getCredits,
   type StreamingProgress,
   type Job
 } from "@/lib/api";
@@ -39,10 +40,29 @@ export default function Home() {
   const [isStreaming, setIsStreaming] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Estado de créditos e custo do vídeo
+  const [userCredits, setUserCredits] = useState<number | null>(null);
+  const [videoCost, setVideoCost] = useState<number>(1);
+
   const { toast } = useToast();
   const { user } = useAuth();
   const supabase = createClient();
   const queryClient = useQueryClient();
+
+  // Busca créditos do usuário
+  useEffect(() => {
+    const fetchCredits = async () => {
+      if (user?.id) {
+        try {
+          const credits = await getCredits(user.id);
+          setUserCredits(credits);
+        } catch (error) {
+          console.error("Erro ao buscar créditos:", error);
+        }
+      }
+    };
+    fetchCredits();
+  }, [user?.id]);
 
   // Configura o token de autenticação quando o usuário estiver logado
   useEffect(() => {
@@ -390,16 +410,22 @@ export default function Home() {
 
               <TabsContent value="upload" className="space-y-4">
                 <FileUpload
-                  onFileSelect={setSelectedFile}
+                  onFileSelect={(file, durationInfo) => {
+                    setSelectedFile(file);
+                    if (durationInfo) {
+                      setVideoCost(durationInfo.cost);
+                    }
+                  }}
                   disabled={isDisabled}
+                  userCredits={userCredits ?? undefined}
                 />
                 <Button
                   size="lg"
                   className="w-full glow-primary transition-all hover:scale-[1.02]"
                   onClick={handleFileSubmit}
-                  disabled={isDisabled || !selectedFile}
+                  disabled={isDisabled || !selectedFile || (userCredits !== null && userCredits < videoCost)}
                 >
-                  {isLoading ? "Enviando..." : "Processar Vídeo"}
+                  {isLoading ? "Enviando..." : `Processar Vídeo (${videoCost} crédito${videoCost > 1 ? 's' : ''})`}
                 </Button>
               </TabsContent>
             </Tabs>

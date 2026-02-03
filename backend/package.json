@@ -28,6 +28,7 @@
     "@supabase/supabase-js": "^2.90.0",
     "dotenv": "^17.2.3",
     "fastify": "^4.28.1",
+    "get-video-duration": "^5.0.0",
     "prisma": "^5.22.0",
     "stripe": "^20.3.0",
     "uuid": "^10.0.0",

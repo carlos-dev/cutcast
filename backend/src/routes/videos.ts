@@ -4,6 +4,12 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import youtubedl from 'youtube-dl-exec';
+import { getVideoDurationInSeconds } from 'get-video-duration';
+
+// Calcula custo em créditos baseado na duração (1 crédito por hora ou fração)
+function calculateCreditCost(durationSeconds: number): number {
+  return Math.ceil(durationSeconds / 3600);
+}
 
 // Usa o binário do sistema se disponível (mais atualizado no Docker), senão usa o bundled
 const ytdlp = fs.existsSync('/usr/local/bin/yt-dlp')
@@ -35,23 +41,23 @@ export async function videosRoutes(
       // Pega o userId do token autenticado
       const { userId } = request as AuthenticatedRequest;
 
-      // ========== VERIFICAÇÃO DE CRÉDITOS ==========
-      // Verifica se o usuário tem créditos disponíveis ANTES de processar
+      // Busca créditos do usuário (verificação detalhada será feita após calcular duração)
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { credits: true }
       });
 
-      if (!user || user.credits <= 0) {
-        return reply.code(402).send({
-          error: 'insufficient_credits',
-          message: 'Saldo insuficiente. Por favor, recarregue seus créditos.'
+      if (!user) {
+        return reply.code(404).send({
+          error: 'user_not_found',
+          message: 'Usuário não encontrado.'
         });
       }
-      // =============================================
 
       let videoUrl: string;
       let withSubtitles: boolean = true; // Valor padrão
+      let videoDurationSeconds: number = 0; // Duração do vídeo em segundos
+      let creditCost: number = 1; // Custo em créditos (calculado baseado na duração)
 
       // Verifica se a requisição é multipart (upload de arquivo)
       if (request.isMultipart()) {
@@ -98,6 +104,31 @@ export async function videosRoutes(
           // Pega tamanho do arquivo
           const fileStats = fs.statSync(tempFilePath);
           fastify.log.info(`Tamanho do arquivo: ${(fileStats.size / 1024 / 1024).toFixed(2)} MB`);
+
+          // ========== CALCULA DURAÇÃO E CUSTO ==========
+          try {
+            videoDurationSeconds = await getVideoDurationInSeconds(tempFilePath);
+            fastify.log.info(`Duração do vídeo: ${(videoDurationSeconds / 60).toFixed(2)} minutos`);
+          } catch (durationError) {
+            fastify.log.warn(`Não foi possível calcular duração: ${durationError}. Assumindo custo mínimo.`);
+            videoDurationSeconds = 3600; // Assume 1 hora se não conseguir calcular
+          }
+
+          creditCost = calculateCreditCost(videoDurationSeconds);
+          fastify.log.info(`Custo calculado: ${creditCost} crédito(s)`);
+
+          // Verifica se tem créditos suficientes
+          if (user.credits < creditCost) {
+            // Remove arquivo temporário antes de retornar erro
+            if (fs.existsSync(tempFilePath)) {
+              fs.unlinkSync(tempFilePath);
+            }
+            return reply.code(402).send({
+              error: 'insufficient_credits',
+              message: `Créditos insuficientes. Este vídeo custa ${creditCost} crédito(s), você tem ${user.credits}.`
+            });
+          }
+          // =============================================
 
           // Cria stream de leitura para upload
           const fileStream = fs.createReadStream(tempFilePath);
@@ -203,6 +234,31 @@ export async function videosRoutes(
           }
           fastify.log.info(`Tamanho do vídeo: ${(fileStats.size / 1024 / 1024).toFixed(2)} MB`);
 
+          // ========== CALCULA DURAÇÃO E CUSTO ==========
+          try {
+            videoDurationSeconds = await getVideoDurationInSeconds(tempFilePath);
+            fastify.log.info(`Duração do vídeo: ${(videoDurationSeconds / 60).toFixed(2)} minutos`);
+          } catch (durationError) {
+            fastify.log.warn(`Não foi possível calcular duração: ${durationError}. Assumindo custo mínimo.`);
+            videoDurationSeconds = 3600; // Assume 1 hora se não conseguir calcular
+          }
+
+          creditCost = calculateCreditCost(videoDurationSeconds);
+          fastify.log.info(`Custo calculado: ${creditCost} crédito(s)`);
+
+          // Verifica se tem créditos suficientes
+          if (user.credits < creditCost) {
+            // Remove arquivo temporário antes de retornar erro
+            if (fs.existsSync(tempFilePath)) {
+              fs.unlinkSync(tempFilePath);
+            }
+            return reply.code(402).send({
+              error: 'insufficient_credits',
+              message: `Créditos insuficientes. Este vídeo custa ${creditCost} crédito(s), você tem ${user.credits}.`
+            });
+          }
+          // =============================================
+
           // Gera nome único para o arquivo no R2
           const uniqueFileName = `${uuidv4()}.mp4`;
 
@@ -291,13 +347,13 @@ export async function videosRoutes(
       }
 
       // Só cria o job no banco se o n8n respondeu com sucesso
-      // Usa transação para criar job E decrementar crédito atomicamente
+      // Usa transação para criar job E decrementar créditos atomicamente
       const job = await prisma.$transaction(async (tx) => {
-        // Decrementa 1 crédito do usuário
+        // Decrementa créditos do usuário baseado na duração do vídeo
         await tx.user.update({
           where: { id: userId },
           data: {
-            credits: { decrement: 1 }
+            credits: { decrement: creditCost }
           }
         });
 

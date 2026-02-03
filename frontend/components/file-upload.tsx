@@ -2,24 +2,81 @@
 
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, Video, X } from "lucide-react";
+import { Upload, Video, X, Clock, Zap, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 
-interface FileUploadProps {
-  onFileSelect: (file: File) => void;
-  disabled?: boolean;
+export interface VideoDurationInfo {
+  duration: number; // em segundos
+  cost: number; // créditos necessários
 }
 
-export function FileUpload({ onFileSelect, disabled }: FileUploadProps) {
+interface FileUploadProps {
+  onFileSelect: (file: File, durationInfo?: VideoDurationInfo) => void;
+  disabled?: boolean;
+  userCredits?: number;
+}
+
+export function FileUpload({ onFileSelect, disabled, userCredits }: FileUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [durationInfo, setDurationInfo] = useState<VideoDurationInfo | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Calcula custo baseado na duração (1 crédito por hora ou fração)
+  const calculateCost = (durationSeconds: number): number => {
+    return Math.ceil(durationSeconds / 3600);
+  };
+
+  // Formata duração em minutos e segundos
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Extrai duração do vídeo usando elemento HTML5
+  const getVideoDuration = (file: File): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(video.duration);
+      };
+
+      video.onerror = () => {
+        URL.revokeObjectURL(video.src);
+        reject(new Error('Não foi possível ler o vídeo'));
+      };
+
+      video.src = URL.createObjectURL(file);
+    });
+  };
 
   const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
+    async (acceptedFiles: File[]) => {
       if (acceptedFiles[0]) {
-        setSelectedFile(acceptedFiles[0]);
-        onFileSelect(acceptedFiles[0]);
+        const file = acceptedFiles[0];
+        setSelectedFile(file);
+        setIsAnalyzing(true);
+        setDurationInfo(null);
+
+        try {
+          const duration = await getVideoDuration(file);
+          const cost = calculateCost(duration);
+          const info: VideoDurationInfo = { duration, cost };
+          setDurationInfo(info);
+          onFileSelect(file, info);
+        } catch {
+          // Se não conseguir ler a duração, assume custo mínimo de 1
+          const info: VideoDurationInfo = { duration: 0, cost: 1 };
+          setDurationInfo(info);
+          onFileSelect(file, info);
+        } finally {
+          setIsAnalyzing(false);
+        }
       }
     },
     [onFileSelect]
@@ -37,7 +94,10 @@ export function FileUpload({ onFileSelect, disabled }: FileUploadProps) {
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedFile(null);
+    setDurationInfo(null);
   };
+
+  const hasInsufficientCredits = userCredits !== undefined && durationInfo && userCredits < durationInfo.cost;
 
   return (
     <Card
@@ -71,9 +131,38 @@ export function FileUpload({ onFileSelect, disabled }: FileUploadProps) {
                   <X className="h-5 w-5 text-destructive" />
                 </button>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-              </p>
+
+              <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+                <span>{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</span>
+
+                {isAnalyzing ? (
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-4 w-4 animate-pulse" />
+                    Analisando...
+                  </span>
+                ) : durationInfo && durationInfo.duration > 0 ? (
+                  <>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-4 w-4" />
+                      {formatDuration(durationInfo.duration)}
+                    </span>
+                    <span className={cn(
+                      "flex items-center gap-1 font-medium",
+                      hasInsufficientCredits ? "text-destructive" : "text-amber-600"
+                    )}>
+                      <Zap className="h-4 w-4" />
+                      {durationInfo.cost} crédito{durationInfo.cost > 1 ? 's' : ''}
+                    </span>
+                  </>
+                ) : null}
+              </div>
+
+              {hasInsufficientCredits && (
+                <div className="flex items-center justify-center gap-2 text-sm text-destructive bg-destructive/10 rounded-md p-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Créditos insuficientes! Você tem {userCredits}, precisa de {durationInfo?.cost}.</span>
+                </div>
+              )}
             </motion.div>
           ) : (
             <motion.div
