@@ -210,7 +210,7 @@ export function Header() {
 
               {/* Dropdown de compra de créditos */}
               {showBuyCredits && (
-                <div className="absolute right-0 top-full mt-1 bg-background border rounded-md shadow-lg p-3 min-w-[200px] z-50">
+                <div className="absolute right-0 top-full mt-1 bg-background border rounded-md shadow-lg p-3 min-w-[220px] z-50">
                   <p className="text-sm font-medium mb-2">Comprar Créditos</p>
                   <div className="space-y-2">
                     <Button
@@ -222,29 +222,32 @@ export function Header() {
                       }}
                     >
                       <span>5 créditos</span>
-                      <span className="text-muted-foreground">$5.00</span>
+                      <span className="text-muted-foreground">R$ 10,00</span>
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="w-full justify-between relative"
+                      onClick={() => {
+                        if (user?.id) buyCredits(user.id, 15);
+                      }}
+                    >
+                      <span>15 créditos</span>
+                      <span>R$ 25,00</span>
+                      <span className="absolute -top-2 -right-2 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                        Popular
+                      </span>
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       className="w-full justify-between"
                       onClick={() => {
-                        if (user?.id) buyCredits(user.id, 10);
+                        if (user?.id) buyCredits(user.id, 40);
                       }}
                     >
-                      <span>10 créditos</span>
-                      <span className="text-muted-foreground">$10.00</span>
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="w-full justify-between"
-                      onClick={() => {
-                        if (user?.id) buyCredits(user.id, 20);
-                      }}
-                    >
-                      <span>20 créditos</span>
-                      <span>$20.00</span>
+                      <span>40 créditos</span>
+                      <span className="text-muted-foreground">R$ 50,00</span>
                     </Button>
                   </div>
                 </div>

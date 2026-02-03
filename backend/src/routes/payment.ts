@@ -5,8 +5,13 @@ import Stripe from 'stripe';
 // Inicializa o Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
-// Preço por crédito em centavos (USD)
-const PRICE_PER_CREDIT_CENTS = 100; // $1.00 por crédito
+// Preços em centavos (BRL) - Pacotes fixos
+const PRICING_BRL: Record<number, number> = {
+  5: 1000,   // R$ 10,00 por 5 créditos
+  15: 2500,  // R$ 25,00 por 15 créditos
+  40: 5000,  // R$ 50,00 por 40 créditos
+};
+const DEFAULT_PRICE_PER_CREDIT_BRL = 250; // R$ 2,50 por crédito (fallback)
 
 // URL do frontend para redirecionamento
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://cutcast.vercel.app';
@@ -73,6 +78,9 @@ export async function paymentRoutes(
         });
       }
 
+      // Calcula o preço total baseado no pacote ou fallback
+      const totalPriceCents = PRICING_BRL[quantity] || (quantity * DEFAULT_PRICE_PER_CREDIT_BRL);
+
       // Cria a sessão de checkout
       const session = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
@@ -80,14 +88,14 @@ export async function paymentRoutes(
         line_items: [
           {
             price_data: {
-              currency: 'usd',
+              currency: 'brl',
               product_data: {
                 name: 'Créditos CutCast',
                 description: `${quantity} crédito${quantity > 1 ? 's' : ''} para gerar cortes de vídeo`
               },
-              unit_amount: PRICE_PER_CREDIT_CENTS
+              unit_amount: totalPriceCents
             },
-            quantity
+            quantity: 1 // Preço total já calculado, quantidade é 1
           }
         ],
         metadata: {
