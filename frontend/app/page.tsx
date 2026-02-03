@@ -8,9 +8,6 @@ import {
   Zap,
   CreditCard,
   Play,
-  Twitter,
-  Instagram,
-  Youtube,
   Mail
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -40,6 +37,46 @@ export default function LandingPage() {
       setShowAuthModal(true);
     }
   };
+
+  const features = [
+    {
+      icon: Scissors,
+      title: "Zero Curva de Aprendizado",
+      description: "Feito para quem não é editor. Interface limpa e direta ao ponto. Não perca tempo configurando mil parâmetros."
+    },
+    {
+      icon: Zap,
+      title: "Agilidade Real",
+      description: "Do link ao rascunho do TikTok em poucos minutos. Integração direta que elimina o trabalho manual de baixar e subir arquivos."
+    },
+    {
+      icon: CreditCard,
+      title: "Preço Transparente",
+      description: "Sem assinaturas mensais obrigatórias. Pague em Reais (R$) e apenas quando precisar usar. Simples assim."
+    }
+  ];
+
+  const pricingPlans = [
+    {
+      title: "Experimentar",
+      price: "10",
+      credits: 5,
+      features: ["5 Créditos", "~R$ 2,00 por vídeo", "Legendas automáticas"]
+    },
+    {
+      title: "Criador Pro",
+      price: "25",
+      credits: 15,
+      features: ["15 Créditos", "~R$ 1,67 por vídeo", "Legendas automáticas"],
+      highlighted: true
+    },
+    {
+      title: "Power User",
+      price: "50",
+      credits: 40,
+      features: ["40 Créditos", "~R$ 1,25 por vídeo", "Legendas automáticas"]
+    }
+  ];
 
   const faqs = [
     {
@@ -144,42 +181,17 @@ export default function LandingPage() {
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-            >
-              <FeatureCard
-                icon={Scissors}
-                title="Zero Curva de Aprendizado"
-                description="Feito para quem não é editor. Interface limpa e direta ao ponto. Não perca tempo configurando mil parâmetros."
-              />
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <FeatureCard
-                icon={Zap}
-                title="Agilidade Real"
-                description="Do link ao rascunho do TikTok em poucos minutos. Integração direta que elimina o trabalho manual de baixar e subir arquivos."
-              />
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-            >
-              <FeatureCard
-                icon={CreditCard}
-                title="Preço Transparente"
-                description="Sem assinaturas mensais obrigatórias. Pague em Reais (R$) e apenas quando precisar usar. Simples assim."
-              />
-            </motion.div>
+            {features.map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.1 * (index + 1) }}
+              >
+                <FeatureCard {...feature} />
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -206,61 +218,17 @@ export default function LandingPage() {
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-6 mb-8">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-            >
-              <PricingCard
-                title="Experimentar"
-                price="10"
-                credits={5}
-                features={[
-                  "5 Créditos",
-                  "~R$ 2,00 por vídeo",
-                  "Legendas automáticas"
-                ]}
-                onSelect={handleCTAClick}
-              />
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <PricingCard
-                title="Criador Pro"
-                price="25"
-                credits={15}
-                features={[
-                  "15 Créditos",
-                  "~R$ 1,67 por vídeo",
-                  "Legendas automáticas"
-                ]}
-                highlighted
-                onSelect={handleCTAClick}
-              />
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-            >
-              <PricingCard
-                title="Power User"
-                price="50"
-                credits={40}
-                features={[
-                  "40 Créditos",
-                  "~R$ 1,25 por vídeo",
-                  "Legendas automáticas"
-                ]}
-                onSelect={handleCTAClick}
-              />
-            </motion.div>
+            {pricingPlans.map((plan, index) => (
+              <motion.div
+                key={plan.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: 0.1 * (index + 1) }}
+              >
+                <PricingCard {...plan} onSelect={handleCTAClick} />
+              </motion.div>
+            ))}
           </div>
 
           <motion.div
@@ -352,17 +320,6 @@ export default function LandingPage() {
             <p className="text-sm text-muted-foreground">
               © 2026 CutCast. Transformando conteúdo em viralidade.
             </p>
-            <div className="flex items-center gap-4">
-              <a href="#" className="text-muted-foreground hover:text-white transition-colors">
-                <Twitter className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-white transition-colors">
-                <Instagram className="h-5 w-5" />
-              </a>
-              <a href="#" className="text-muted-foreground hover:text-white transition-colors">
-                <Youtube className="h-5 w-5" />
-              </a>
-            </div>
           </div>
         </div>
       </footer>
