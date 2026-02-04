@@ -149,17 +149,16 @@ export async function videosRoutes(
           }
           // =============================================
 
-          // Cria stream de leitura para upload
-          const fileStream = fs.createReadStream(tempFilePath);
+          // Lê arquivo como Buffer (mais confiável para R2 do que stream)
+          const fileBuffer = fs.readFileSync(tempFilePath);
 
-          // Faz upload para o Cloudflare R2 usando Stream
+          // Faz upload para o Cloudflare R2 usando Buffer
           const r2Key = `${R2_UPLOADS_PREFIX}/${path.basename(tempFilePath)}`;
           const putCommand = new PutObjectCommand({
             Bucket: R2_BUCKET_NAME,
             Key: r2Key,
-            Body: fileStream,
-            ContentType: fileMimeType,
-            ContentLength: fileStats.size
+            Body: fileBuffer,
+            ContentType: fileMimeType
           });
 
           await r2Client.send(putCommand);
@@ -283,16 +282,15 @@ export async function videosRoutes(
           const uniqueFileName = `${uuidv4()}.mp4`;
           const r2Key = `${R2_UPLOADS_PREFIX}/${uniqueFileName}`;
 
-          // Cria stream de leitura do arquivo (otimiza memória)
-          const fileStream = fs.createReadStream(tempFilePath);
+          // Lê arquivo como Buffer (mais confiável para R2 do que stream)
+          const fileBuffer = fs.readFileSync(tempFilePath);
 
-          // Faz upload para R2 usando Stream
+          // Faz upload para R2 usando Buffer
           const putCommand = new PutObjectCommand({
             Bucket: R2_BUCKET_NAME,
             Key: r2Key,
-            Body: fileStream,
-            ContentType: 'video/mp4',
-            ContentLength: fileStats.size
+            Body: fileBuffer,
+            ContentType: 'video/mp4'
           });
 
           await r2Client.send(putCommand);
