@@ -45,6 +45,9 @@ export default function Dashboard() {
   const [userCredits, setUserCredits] = useState<number | null>(null);
   const [videoCost, setVideoCost] = useState<number>(1);
 
+  // ID do job que acabou de completar (para expandir automaticamente no histórico)
+  const [justCompletedJobId, setJustCompletedJobId] = useState<string | null>(null);
+
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
@@ -114,6 +117,12 @@ export default function Dashboard() {
         queryClient.invalidateQueries({ queryKey: ["jobs"] });
         // Dispara evento para atualizar créditos no header
         window.dispatchEvent(new CustomEvent('refresh-credits'));
+        // Marca este job como recém-completado (para expandir no histórico)
+        setJustCompletedJobId(jobId);
+        // Reseta o formulário para permitir novo upload
+        setSelectedFile(null);
+        setCurrentJobId(null);
+        setVideoCost(1);
         toast({
           title: "Processamento concluído!",
           description: "Seus cortes estão prontos.",
@@ -126,6 +135,10 @@ export default function Dashboard() {
           error: error
         });
         setIsStreaming(false);
+        // Reseta o formulário para permitir nova tentativa
+        setSelectedFile(null);
+        setCurrentJobId(null);
+        setVideoCost(1);
         toast({
           variant: "destructive",
           title: "Erro no processamento",
@@ -435,6 +448,7 @@ export default function Dashboard() {
 
               <TabsContent value="upload" className="space-y-4">
                 <FileUpload
+                  file={selectedFile}
                   onFileSelect={(file, durationInfo) => {
                     setSelectedFile(file);
                     if (durationInfo) {
@@ -485,7 +499,7 @@ export default function Dashboard() {
               Acompanhe todos os seus vídeos processados
             </p>
           </div>
-          <VideoHistory />
+          <VideoHistory justCompletedJobId={justCompletedJobId} />
         </motion.div>
       </section>
 

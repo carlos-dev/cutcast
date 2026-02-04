@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import { Upload, Video, X, Clock, Zap, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,16 +17,30 @@ export interface VideoDurationInfo {
 }
 
 interface FileUploadProps {
-  onFileSelect: (file: File, durationInfo?: VideoDurationInfo) => void;
+  onFileSelect: (file: File | null, durationInfo?: VideoDurationInfo) => void;
   disabled?: boolean;
   userCredits?: number;
+  file?: File | null; // Prop para controlar o estado externamente
 }
 
-export function FileUpload({ onFileSelect, disabled, userCredits }: FileUploadProps) {
+export function FileUpload({ onFileSelect, disabled, userCredits, file }: FileUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [durationInfo, setDurationInfo] = useState<VideoDurationInfo | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
+
+  // Rastreia o valor anterior da prop file para detectar reset externo
+  const prevFileRef = useRef<File | null | undefined>(undefined);
+
+  // Sincroniza estado interno com prop externa (apenas para reset)
+  useEffect(() => {
+    // Só reseta se a prop file mudou de um valor não-null para null (reset explícito do pai)
+    if (prevFileRef.current !== undefined && prevFileRef.current !== null && file === null) {
+      setSelectedFile(null);
+      setDurationInfo(null);
+    }
+    prevFileRef.current = file;
+  }, [file]);
 
   // Calcula custo baseado na duração (1 crédito a cada 30 minutos ou fração)
   // 0-30min: 1 crédito, 31-60min: 2 créditos, 61min+: 3 créditos
@@ -113,6 +127,7 @@ export function FileUpload({ onFileSelect, disabled, userCredits }: FileUploadPr
     e.stopPropagation();
     setSelectedFile(null);
     setDurationInfo(null);
+    onFileSelect(null); // Notifica o pai que o arquivo foi removido
   };
 
   const hasInsufficientCredits = userCredits !== undefined && durationInfo && userCredits < durationInfo.cost;

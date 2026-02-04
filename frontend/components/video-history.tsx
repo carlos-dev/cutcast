@@ -25,7 +25,11 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
 
-export function VideoHistory() {
+interface VideoHistoryProps {
+  justCompletedJobId?: string | null;
+}
+
+export function VideoHistory({ justCompletedJobId }: VideoHistoryProps) {
   const { data: jobs, isLoading, error } = useQuery({
     queryKey: ["jobs"],
     queryFn: getJobs,
@@ -84,9 +88,19 @@ export function VideoHistory() {
 
   return (
     <div className="space-y-4">
-      {jobs.map((job, index) => (
-        <JobCard key={job.id || job.job_id} job={job} index={index} />
-      ))}
+      {jobs.map((job, index) => {
+        const jobId = job.id || job.job_id;
+        // Adiciona justCompletedJobId à key para forçar remount do card que acabou de completar
+        const cardKey = jobId === justCompletedJobId ? `${jobId}-completed` : jobId;
+        return (
+          <JobCard
+            key={cardKey}
+            job={job}
+            index={index}
+            justCompletedJobId={justCompletedJobId}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -94,10 +108,16 @@ export function VideoHistory() {
 interface JobCardProps {
   job: Job;
   index: number;
+  justCompletedJobId?: string | null;
 }
 
-function JobCard({ job, index }: JobCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+function JobCard({ job, index, justCompletedJobId }: JobCardProps) {
+  const jobId = job.id || job.job_id;
+
+  // Expande automaticamente apenas na montagem inicial se este job acabou de completar
+  const [isExpanded, setIsExpanded] = useState(() => {
+    return !!(justCompletedJobId && jobId === justCompletedJobId);
+  });
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
