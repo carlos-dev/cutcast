@@ -70,12 +70,28 @@ export async function videosRoutes(
       // Verifica se a requisição é multipart (upload de arquivo)
       if (request.isMultipart()) {
         const parts = request.parts();
-        let fileData: MultipartFile | undefined;
+        let tempFilePath: string | undefined;
+        let fileMimeType: string = 'video/mp4';
 
-        // Processa todas as partes do multipart
+        // Processa todas as partes do multipart - IMPORTANTE: consumir o file stream imediatamente
         for await (const part of parts) {
           if (part.type === 'file') {
-            fileData = part as MultipartFile;
+            // Gera um nome único para o arquivo
+            const fileExtension = part.filename.split('.').pop() || 'mp4';
+            const uniqueFileName = `${uuidv4()}.${fileExtension}`;
+            tempFilePath = path.join(os.tmpdir(), uniqueFileName);
+            fileMimeType = part.mimetype;
+
+            // CRÍTICO: Consumir o stream DENTRO do loop, não depois!
+            const writeStream = fs.createWriteStream(tempFilePath);
+            await new Promise<void>((resolve, reject) => {
+              part.file.pipe(writeStream);
+              part.file.on('end', resolve);
+              part.file.on('error', reject);
+              writeStream.on('error', reject);
+            });
+
+            fastify.log.info(`Arquivo salvo temporariamente em: ${tempFilePath}`);
           } else if (part.type === 'field') {
             // Captura o campo withSubtitles do FormData
             if (part.fieldname === 'withSubtitles') {
@@ -84,30 +100,13 @@ export async function videosRoutes(
           }
         }
 
-        if (!fileData) {
+        if (!tempFilePath) {
           return reply.code(400).send({
             error: 'Nenhum arquivo foi enviado'
           });
         }
 
-        // Gera um nome único para o arquivo
-        const fileExtension = fileData.filename.split('.').pop() || 'mp4';
-        const uniqueFileName = `${uuidv4()}.${fileExtension}`;
-
-        // Salva temporariamente no disco para usar stream (otimiza memória)
-        const tempFilePath = path.join(os.tmpdir(), uniqueFileName);
-
         try {
-          // Salva o arquivo no disco temporário
-          const writeStream = fs.createWriteStream(tempFilePath);
-          await new Promise((resolve, reject) => {
-            fileData.file.pipe(writeStream);
-            fileData.file.on('end', resolve);
-            fileData.file.on('error', reject);
-            writeStream.on('error', reject);
-          });
-
-          fastify.log.info(`Arquivo salvo temporariamente em: ${tempFilePath}`);
 
           // Pega tamanho do arquivo
           const fileStats = fs.statSync(tempFilePath);
@@ -154,12 +153,12 @@ export async function videosRoutes(
           const fileStream = fs.createReadStream(tempFilePath);
 
           // Faz upload para o Cloudflare R2 usando Stream
-          const r2Key = `${R2_UPLOADS_PREFIX}/${uniqueFileName}`;
+          const r2Key = `${R2_UPLOADS_PREFIX}/${path.basename(tempFilePath)}`;
           const putCommand = new PutObjectCommand({
             Bucket: R2_BUCKET_NAME,
             Key: r2Key,
             Body: fileStream,
-            ContentType: fileData.mimetype,
+            ContentType: fileMimeType,
             ContentLength: fileStats.size
           });
 
