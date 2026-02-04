@@ -43,6 +43,7 @@ model Job {
   outputUrls   String[]
   results      Json?      // ✅ Campo adicionado e sincronizado com o banco
   status       String
+  creditCost   Int        @default(3) // Custo em créditos (cobrado no callback de sucesso)
   errorMessage String?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt

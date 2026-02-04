@@ -369,25 +369,15 @@ export async function videosRoutes(
       }
 
       // Só cria o job no banco se o n8n respondeu com sucesso
-      // Usa transação para criar job E decrementar créditos atomicamente
-      const job = await prisma.$transaction(async (tx) => {
-        // Decrementa créditos do usuário baseado na duração do vídeo
-        await tx.user.update({
-          where: { id: userId },
-          data: {
-            credits: { decrement: creditCost }
-          }
-        });
-
-        // Cria o job
-        return tx.job.create({
-          data: {
-            id: jobId,
-            userId: userId,
-            inputUrl: videoUrl,
-            status: 'PENDING'
-          }
-        });
+      // Salva o creditCost no job para cobrar no callback de sucesso
+      const job = await prisma.job.create({
+        data: {
+          id: jobId,
+          userId: userId,
+          inputUrl: videoUrl,
+          status: 'PENDING',
+          creditCost: creditCost
+        }
       });
 
       // Retorna os dados do job criado

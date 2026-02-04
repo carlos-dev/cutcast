@@ -116,6 +116,14 @@ export async function callbacksRoutes(
           // Fallback: se não houver results, usa outputUrls
           updateData.outputUrls = body.outputUrls;
         }
+
+        // Decrementa créditos do usuário apenas quando processamento foi bem-sucedido
+        await prisma.user.update({
+          where: { id: job.userId },
+          data: {
+            credits: { decrement: job.creditCost }
+          }
+        });
       }
 
       // Se erro, salva a mensagem de erro
