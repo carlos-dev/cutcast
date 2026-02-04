@@ -49,6 +49,22 @@ export function TikTokButton({ userId, onShowDropdownChange }: TikTokButtonProps
     checkStatus();
   }, [userId]);
 
+  // Escuta mensagem do popup de OAuth (pode vir do TikTokButton ou ResultsGallery)
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'TIKTOK_CONNECTED' && event.data?.success) {
+        setTiktokConnected(true);
+        toast({
+          title: "TikTok Conectado!",
+          description: "Sua conta TikTok foi vinculada com sucesso.",
+        });
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [toast]);
+
   // Verifica parâmetros da URL (retorno do OAuth)
   useEffect(() => {
     if (typeof window === "undefined") return;

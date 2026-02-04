@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Download, Copy, Check, Hash, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -75,7 +75,69 @@ interface ResultCardProps {
 function ResultCard({ result, index, userId }: ResultCardProps) {
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+  const [pendingShare, setPendingShare] = useState(false);
   const { toast } = useToast();
+
+  /**
+   * Função para efetivamente compartilhar no TikTok
+   */
+  const doShareToTikTok = useCallback(async () => {
+    if (!userId) return;
+
+    setIsSharing(true);
+    setPendingShare(false);
+
+    try {
+      const response = await shareToTikTok(userId, result.videoUrl, result.title);
+
+      if (response.success) {
+        toast({
+          title: "Enviado para o TikTok!",
+          description: response.message,
+        });
+      }
+    } catch (error) {
+      const axiosError = error as AxiosError<{ error: string; message?: string }>;
+
+      // Se ainda não estiver conectado, mostra erro
+      if (axiosError.response?.status === 403) {
+        toast({
+          variant: "destructive",
+          title: "Erro ao compartilhar",
+          description: "Não foi possível conectar ao TikTok. Tente novamente.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Erro ao compartilhar",
+          description: axiosError.response?.data?.message || "Tente novamente mais tarde.",
+        });
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  }, [userId, result.videoUrl, result.title, toast]);
+
+  /**
+   * Escuta mensagem do popup de OAuth do TikTok
+   */
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'TIKTOK_CONNECTED' && event.data?.success) {
+        // Se havia um compartilhamento pendente, executa automaticamente
+        if (pendingShare) {
+          toast({
+            title: "TikTok Conectado!",
+            description: "Enviando seu vídeo...",
+          });
+          doShareToTikTok();
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [pendingShare, doShareToTikTok, toast]);
 
   /**
    * Copia a legenda completa (caption + hashtags) para a área de transferência
@@ -127,6 +189,9 @@ function ResultCard({ result, index, userId }: ResultCardProps) {
             title: "Conecte sua conta TikTok",
             description: "Uma nova aba será aberta para autorizar o acesso.",
           });
+
+          // Marca que há um compartilhamento pendente
+          setPendingShare(true);
 
           // Abre OAuth em nova aba
           setTimeout(() => {

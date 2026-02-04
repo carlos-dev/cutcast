@@ -302,6 +302,15 @@ export async function authRoutes(
               <div class="brand">CUTCAST</div>
             </div>
             <script>
+              // Notifica a janela pai que o TikTok foi conectado
+              try {
+                if (window.opener) {
+                  window.opener.postMessage({ type: 'TIKTOK_CONNECTED', success: true }, '*');
+                }
+              } catch (e) {
+                console.log('Could not notify opener:', e);
+              }
+              
               // Fecha a janela após a barra de progresso completar
               setTimeout(() => {
                 window.close();
