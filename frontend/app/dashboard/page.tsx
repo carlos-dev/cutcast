@@ -112,6 +112,8 @@ export default function Dashboard() {
         // Invalida queries para atualizar dados
         queryClient.invalidateQueries({ queryKey: ["job", jobId] });
         queryClient.invalidateQueries({ queryKey: ["jobs"] });
+        // Dispara evento para atualizar créditos no header
+        window.dispatchEvent(new CustomEvent('refresh-credits'));
         toast({
           title: "Processamento concluído!",
           description: "Seus cortes estão prontos.",

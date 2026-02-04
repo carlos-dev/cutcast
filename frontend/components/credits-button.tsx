@@ -66,6 +66,15 @@ export function CreditsButton({ userId, onShowDropdownChange }: CreditsButtonPro
     return () => window.removeEventListener('close-header-dropdowns', handleClose);
   }, []);
 
+  // Atualiza créditos quando o processamento de vídeo é concluído
+  useEffect(() => {
+    const handleRefreshCredits = () => {
+      getCredits(userId).then(setCredits).catch(console.error);
+    };
+    window.addEventListener('refresh-credits', handleRefreshCredits);
+    return () => window.removeEventListener('refresh-credits', handleRefreshCredits);
+  }, [userId]);
+
   if (credits === null) {
     return null;
   }
