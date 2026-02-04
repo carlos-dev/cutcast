@@ -186,36 +186,126 @@ export async function authRoutes(
           <!DOCTYPE html>
           <html>
           <head>
-            <title>TikTok Conectado</title>
+            <title>TikTok Conectado - CutCast</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+              }
               body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                height: 100vh;
-                margin: 0;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
+                min-height: 100vh;
+                background: hsl(260 40% 6%);
+                background-image:
+                  radial-gradient(ellipse 80% 50% at 50% -20%, hsl(270 100% 30% / 0.15), transparent),
+                  radial-gradient(ellipse 60% 40% at 90% 120%, hsl(195 100% 40% / 0.1), transparent);
+                color: hsl(280 10% 95%);
                 text-align: center;
               }
-              .container { padding: 2rem; }
-              .check { font-size: 4rem; margin-bottom: 1rem; }
-              h1 { margin: 0 0 0.5rem; }
-              p { opacity: 0.9; }
+              .container {
+                padding: 2.5rem;
+                background: hsl(260 30% 10%);
+                border-radius: 0.75rem;
+                border: 1px solid hsl(265 20% 22%);
+                box-shadow:
+                  0 0 0 1px hsl(265 20% 22%),
+                  0 0 40px -10px hsl(270 100% 70% / 0.3);
+                animation: fadeIn 0.5s ease-out;
+              }
+              @keyframes fadeIn {
+                from { opacity: 0; transform: scale(0.95) translateY(10px); }
+                to { opacity: 1; transform: scale(1) translateY(0); }
+              }
+              .icon-wrapper {
+                width: 80px;
+                height: 80px;
+                margin: 0 auto 1.5rem;
+                background: linear-gradient(135deg, hsl(270 100% 70%), hsl(195 100% 60%));
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: 0 0 30px hsl(270 100% 70% / 0.4);
+                animation: pulse 2s ease-in-out infinite;
+              }
+              @keyframes pulse {
+                0%, 100% { box-shadow: 0 0 30px hsl(270 100% 70% / 0.4); }
+                50% { box-shadow: 0 0 50px hsl(270 100% 70% / 0.6); }
+              }
+              .check-icon {
+                width: 40px;
+                height: 40px;
+                stroke: hsl(260 40% 10%);
+                stroke-width: 3;
+                fill: none;
+                animation: drawCheck 0.5s ease-out 0.3s forwards;
+                stroke-dasharray: 50;
+                stroke-dashoffset: 50;
+              }
+              @keyframes drawCheck {
+                to { stroke-dashoffset: 0; }
+              }
+              h1 {
+                font-size: 1.5rem;
+                font-weight: 700;
+                margin-bottom: 0.5rem;
+                background: linear-gradient(90deg, hsl(270 100% 70%), hsl(195 100% 60%), hsl(270 100% 70%));
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+              }
+              p {
+                color: hsl(260 10% 65%);
+                font-size: 0.875rem;
+              }
+              .progress-bar {
+                margin-top: 1.5rem;
+                height: 4px;
+                background: hsl(265 25% 18%);
+                border-radius: 2px;
+                overflow: hidden;
+              }
+              .progress-fill {
+                height: 100%;
+                background: linear-gradient(90deg, hsl(270 100% 70%), hsl(195 100% 60%));
+                animation: progress 2.5s ease-in-out forwards;
+              }
+              @keyframes progress {
+                from { width: 0%; }
+                to { width: 100%; }
+              }
+              .brand {
+                margin-top: 1.5rem;
+                font-size: 0.75rem;
+                color: hsl(260 10% 45%);
+                letter-spacing: 0.05em;
+              }
             </style>
           </head>
           <body>
             <div class="container">
-              <div class="check">✓</div>
+              <div class="icon-wrapper">
+                <svg class="check-icon" viewBox="0 0 24 24">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
               <h1>TikTok Conectado!</h1>
-              <p>Esta janela será fechada automaticamente...</p>
+              <p>Sua conta foi vinculada com sucesso</p>
+              <div class="progress-bar">
+                <div class="progress-fill"></div>
+              </div>
+              <div class="brand">CUTCAST</div>
             </div>
             <script>
-              // Fecha a janela após 3 segundos
+              // Fecha a janela após a barra de progresso completar
               setTimeout(() => {
                 window.close();
-              }, 3000);
+              }, 2800);
             </script>
           </body>
           </html>
