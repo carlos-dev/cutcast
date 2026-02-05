@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FileUpload, type VideoDurationInfo } from "@/components/file-upload";
 import { JobStatusCard } from "@/components/job-status-card";
-import { VideoHistory } from "@/components/video-history";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -45,14 +44,18 @@ export default function Dashboard() {
   const [userCredits, setUserCredits] = useState<number | null>(null);
   const [videoCost, setVideoCost] = useState<number>(1);
 
-  // ID do job que acabou de completar (para expandir automaticamente no histórico)
-  const [justCompletedJobId, setJustCompletedJobId] = useState<string | null>(null);
-
   const { toast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const supabase = createClient();
   const queryClient = useQueryClient();
+
+  // Query para buscar todos os jobs (para estatísticas)
+  const { data: allJobs } = useQuery({
+    queryKey: ["jobs"],
+    queryFn: getJobs,
+    enabled: !!user,
+  });
 
   // Redireciona para landing se não estiver logado
   useEffect(() => {
@@ -117,16 +120,16 @@ export default function Dashboard() {
         queryClient.invalidateQueries({ queryKey: ["jobs"] });
         // Dispara evento para atualizar créditos no header
         window.dispatchEvent(new CustomEvent('refresh-credits'));
-        // Marca este job como recém-completado (para expandir no histórico)
-        setJustCompletedJobId(jobId);
         // Reseta o formulário para permitir novo upload
         setSelectedFile(null);
         setCurrentJobId(null);
         setVideoCost(1);
         toast({
           title: "Processamento concluído!",
-          description: "Seus cortes estão prontos.",
+          description: "Seus cortes estão prontos. Redirecionando...",
         });
+        // Redireciona para histórico com o job expandido
+        router.push(`/history?completed=${jobId}`);
       },
       onError: (error) => {
         setStreamingProgress({
@@ -146,7 +149,7 @@ export default function Dashboard() {
         });
       }
     }, controller);
-  }, [queryClient, toast]);
+  }, [queryClient, toast, router]);
 
   // Cleanup do stream quando componente desmontar
   useEffect(() => {
@@ -343,34 +346,49 @@ export default function Dashboard() {
     return null;
   }
 
+  // Calcula Quick Stats
+  const stats = {
+    totalProcessed: allJobs?.filter((j: Job) => j.status === "DONE").length || 0,
+    totalClips: allJobs?.reduce((acc: number, j: Job) => {
+      if (j.status === "DONE") {
+        return acc + (j.results?.length || j.outputUrls?.length || 1);
+      }
+      return acc;
+    }, 0) || 0,
+    inProgress: allJobs?.filter((j: Job) => j.status === "PENDING" || j.status === "PROCESSING").length || 0,
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-background/50">
       <Header />
-      {/* Hero Section */}
-      <section className="container mx-auto px-4 pt-20 pb-12">
+
+      {/* Quick Stats */}
+      <section className="container mx-auto px-4 pt-8 pb-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-center space-y-6 max-w- mx-auto"
+          className="max-w-5xl mx-auto"
         >
-          <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
-            Transforme seus vídeos em
-            <span className="gradient-text">
-              {" "}
-              Clipes Virais
-            </span>
-          </h1>
-
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            IA de ponta para converter vídeos longos em clipes verticais perfeitos para
-            TikTok, Reels e Shorts. Automático, rápido e profissional.
-          </p>
+          <div className="grid grid-cols-3 gap-4">
+            <Card className="p-4 text-center">
+              <p className="text-2xl font-bold text-primary">{stats.totalProcessed}</p>
+              <p className="text-sm text-muted-foreground">Vídeos Processados</p>
+            </Card>
+            <Card className="p-4 text-center">
+              <p className="text-2xl font-bold text-primary">{stats.totalClips}</p>
+              <p className="text-sm text-muted-foreground">Clipes Gerados</p>
+            </Card>
+            <Card className="p-4 text-center">
+              <p className="text-2xl font-bold text-primary">{stats.inProgress}</p>
+              <p className="text-sm text-muted-foreground">Em Processamento</p>
+            </Card>
+          </div>
         </motion.div>
       </section>
 
       {/* Input Section */}
-      <section className="container mx-auto px-4 py-12">
+      <section className="container mx-auto px-4 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -484,24 +502,6 @@ export default function Dashboard() {
           </div>
         </section>
       )}
-
-      {/* Video History Section */}
-      <section className="container mx-auto px-4 py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="max-w-5xl mx-auto"
-        >
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold">Histórico de Vídeos</h2>
-            <p className="text-muted-foreground mt-1">
-              Acompanhe todos os seus vídeos processados
-            </p>
-          </div>
-          <VideoHistory justCompletedJobId={justCompletedJobId} />
-        </motion.div>
-      </section>
 
       {/* Footer */}
       <footer className="container mx-auto px-4 py-12 text-center text-sm text-muted-foreground">

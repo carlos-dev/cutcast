@@ -27,12 +27,14 @@ import { useToast } from "@/hooks/use-toast";
 
 interface VideoHistoryProps {
   justCompletedJobId?: string | null;
+  filteredJobs?: Job[]; // Jobs pré-filtrados da página de histórico
 }
 
-export function VideoHistory({ justCompletedJobId }: VideoHistoryProps) {
-  const { data: jobs, isLoading, error } = useQuery({
+export function VideoHistory({ justCompletedJobId, filteredJobs }: VideoHistoryProps) {
+  const { data: fetchedJobs, isLoading, error } = useQuery({
     queryKey: ["jobs"],
     queryFn: getJobs,
+    enabled: !filteredJobs, // Só busca se não tiver jobs filtrados
     refetchInterval: (query) => {
       const data = query.state.data;
 
@@ -49,7 +51,11 @@ export function VideoHistory({ justCompletedJobId }: VideoHistoryProps) {
     },
   });
 
-  if (isLoading) {
+  // Usa filteredJobs se fornecido, senão usa fetchedJobs
+  const jobs = filteredJobs ?? fetchedJobs;
+
+  // Se tiver filteredJobs, não mostra loading (dados vêm do pai)
+  if (isLoading && !filteredJobs) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -58,12 +64,12 @@ export function VideoHistory({ justCompletedJobId }: VideoHistoryProps) {
     );
   }
 
-  if (error) {
+  if (error && !filteredJobs) {
     return (
       <Card className="border-destructive/50 bg-destructive/5">
         <CardContent className="py-8 text-center">
           <XCircle className="w-12 h-12 mx-auto mb-4 text-destructive" />
-          <p className="text-destructive">Erro ao carregar histórico de vídeos</p>
+          <p className="text-destructive">Erro ao carregar histórico de cortes</p>
           <p className="text-sm text-muted-foreground mt-2">
             Verifique sua conexão e tente novamente
           </p>
@@ -77,7 +83,7 @@ export function VideoHistory({ justCompletedJobId }: VideoHistoryProps) {
       <Card className="border-dashed">
         <CardContent className="py-12 text-center">
           <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground">Nenhum vídeo processado ainda</p>
+          <p className="text-muted-foreground">Nenhum corte processado ainda</p>
           <p className="text-sm text-muted-foreground mt-2">
             Envie seu primeiro vídeo acima para começar!
           </p>
@@ -297,12 +303,12 @@ function JobCard({ job, index, justCompletedJobId }: JobCardProps) {
                   {isExpanded ? (
                     <>
                       <ChevronUp className="w-4 h-4 mr-2" />
-                      Ocultar Vídeos ({hasResults ? job.results?.length : job.outputUrls?.length})
+                      Ocultar cortes ({hasResults ? job.results?.length : job.outputUrls?.length})
                     </>
                   ) : (
                     <>
                       <ChevronDown className="w-4 h-4 mr-2" />
-                      Ver Todos os Vídeos ({hasResults ? job.results?.length : job.outputUrls?.length})
+                      Ver Todos os cortes ({hasResults ? job.results?.length : job.outputUrls?.length})
                     </>
                   )}
                 </Button>
