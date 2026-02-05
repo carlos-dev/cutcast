@@ -6,6 +6,7 @@ import { progressRoutes } from './progress';
 import { authRoutes } from './auth';
 import { shareRoutes } from './share';
 import { paymentRoutes } from './payment';
+import { usersRoutes } from './users';
 
 export async function registerRoutes(fastify: FastifyInstance) {
   // Endpoint GET / para informações sobre a API
@@ -28,6 +29,8 @@ export async function registerRoutes(fastify: FastifyInstance) {
         'POST /payment/checkout': 'Criar sessão de checkout para compra de créditos',
         'POST /payment/webhook': 'Webhook do Stripe para processar pagamentos',
         'GET /payment/credits': 'Consultar saldo de créditos do usuário',
+        'GET /users/:userId/profile': 'Buscar perfil do usuário',
+        'DELETE /users/:userId': 'Deletar conta do usuário permanentemente',
         'GET /docs': 'Documentação Swagger'
       },
       note: 'Para acessar via ngrok sem o aviso, adicione o header: ngrok-skip-browser-warning: true'
@@ -42,5 +45,6 @@ export async function registerRoutes(fastify: FastifyInstance) {
   fastify.register(authRoutes);
   fastify.register(shareRoutes);
   fastify.register(paymentRoutes);
+  fastify.register(usersRoutes);
 }
 

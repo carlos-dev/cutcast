@@ -360,6 +360,35 @@ export const buyCredits = async (userId: string, quantity: number): Promise<void
   }
 };
 
+// === USER PROFILE TYPES ===
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  credits: number;
+  stripeCustomerId: string | null;
+  tiktokConnected: boolean;
+  createdAt: string;
+}
+
+// === USER PROFILE FUNCTIONS ===
+
+/**
+ * Busca o perfil do usuário
+ */
+export const getUserProfile = async (userId: string): Promise<UserProfile> => {
+  const response = await api.get<UserProfile>(`/users/${userId}/profile`);
+  return response.data;
+};
+
+/**
+ * Deleta a conta do usuário permanentemente
+ */
+export const deleteUserAccount = async (userId: string): Promise<{ success: boolean; message: string }> => {
+  const response = await api.delete<{ success: boolean; message: string }>(`/users/${userId}`);
+  return response.data;
+};
+
 /**
  * Helper: Retorna mensagem amigável baseada no status
  */

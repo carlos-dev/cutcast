@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { LogOut, Plus, Clock } from "lucide-react";
+import { LogOut, Plus, Clock, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 import { TikTokButton } from "./tiktok-button";
 import { CreditsButton } from "./credits-button";
@@ -32,6 +32,7 @@ export function Header() {
   const navItems = [
     { href: "/dashboard", label: "Novo Corte", icon: Plus },
     { href: "/history", label: "Histórico", icon: Clock },
+    { href: "/settings", label: "Configurações", icon: Settings },
   ];
 
   return (
