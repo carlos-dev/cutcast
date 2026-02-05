@@ -44,11 +44,22 @@ export default function HistoryPage() {
     setupAuth();
   }, [user, supabase.auth]);
 
-  // Query para buscar jobs
+  // Query para buscar jobs com polling para jobs em processamento
   const { data: jobs } = useQuery({
     queryKey: ["jobs"],
     queryFn: getJobs,
     enabled: !!user,
+    refetchOnMount: 'always', // Sempre busca dados frescos ao montar
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (!data) return false;
+
+      // Se tiver job processando, faz polling a cada 3s
+      const isProcessing = data.some((job: Job) =>
+        job.status === 'PENDING' || job.status === 'PROCESSING'
+      );
+      return isProcessing ? 3000 : false;
+    },
   });
 
   // Filtra jobs baseado na pesquisa e status

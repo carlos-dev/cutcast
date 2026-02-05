@@ -97,7 +97,7 @@ export function JobStatusCard({ job, streamingProgress, isStreaming }: JobStatus
       transition={{ duration: 0.5 }}
       className="container mx-auto px-4"
     >
-      <Card className="border-2 card-glow">
+      <Card className="border-2 card-glow max-w-5xl mx-auto">
         <CardHeader>
           <CardTitle className="flex items-center gap-3">
             {getStatusIcon()}
