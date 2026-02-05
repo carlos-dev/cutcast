@@ -49,10 +49,10 @@ export async function videosRoutes(
       // Pega o userId do token autenticado
       const { userId } = request as AuthenticatedRequest;
 
-      // Busca créditos do usuário (verificação detalhada será feita após calcular duração)
+      // Busca créditos e status de pagamento do usuário
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { credits: true }
+        select: { credits: true, stripeCustomerId: true }
       });
 
       if (!user) {
@@ -333,8 +333,11 @@ export async function videosRoutes(
       // Gera um ID único para o job
       const jobId = uuidv4();
 
+      // Determina se deve aplicar marca d'água (usuários que nunca pagaram)
+      const shouldWatermark = !user.stripeCustomerId;
+
       // Log dos parâmetros que serão enviados ao n8n
-      fastify.log.info(`Chamando webhook n8n - jobId: ${jobId}, withSubtitles: ${withSubtitles}`);
+      fastify.log.info(`Chamando webhook n8n - jobId: ${jobId}, withSubtitles: ${withSubtitles}, shouldWatermark: ${shouldWatermark}`);
 
       // Tenta chamar o webhook do n8n ANTES de criar o job no banco
       try {
@@ -346,7 +349,8 @@ export async function videosRoutes(
           body: JSON.stringify({
             videoUrl: videoUrl,
             jobId,
-            withSubtitles
+            withSubtitles,
+            shouldWatermark
           })
         });
 
