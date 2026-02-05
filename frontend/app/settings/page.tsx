@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { User, Settings, Link as LinkIcon, AlertTriangle, Trash2, Loader2 } from "lucide-react";
+import { TikTokIcon } from "@/components/tiktok-button";
 import { Header } from "@/components/header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,15 @@ export default function SettingsPage() {
   const router = useRouter();
   const supabase = createClient();
   const { toast } = useToast();
-  const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
+  const [subtitlesEnabled, setSubtitlesEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("defaultSubtitles") !== "false";
+  });
+
+  const handleSubtitlesChange = (checked: boolean) => {
+    setSubtitlesEnabled(checked);
+    localStorage.setItem("defaultSubtitles", String(checked));
+  };
 
   // Redireciona para landing se não estiver logado
   useEffect(() => {
@@ -180,7 +189,7 @@ export default function SettingsPage() {
                   <span className="text-sm">Legendas por padrão</span>
                   <Switch
                     checked={subtitlesEnabled}
-                    onCheckedChange={setSubtitlesEnabled}
+                    onCheckedChange={handleSubtitlesChange}
                   />
                 </div>
               </CardContent>
@@ -204,7 +213,7 @@ export default function SettingsPage() {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-lg bg-black flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">T</span>
+                      <TikTokIcon className="h-5 w-5 text-white" />
                     </div>
                     <div>
                       <p className="text-sm font-medium">TikTok</p>

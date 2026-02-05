@@ -33,7 +33,10 @@ export default function Dashboard() {
   const [videoUrl, setVideoUrl] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
-  const [withSubtitles, setWithSubtitles] = useState(true);
+  const [withSubtitles, setWithSubtitles] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem("defaultSubtitles") !== "false";
+  });
 
   // Estado do streaming de progresso
   const [streamingProgress, setStreamingProgress] = useState<StreamingProgress | null>(null);
