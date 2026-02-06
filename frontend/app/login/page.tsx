@@ -87,8 +87,8 @@ export default function LoginPage() {
       });
     } else {
       toast({
-        title: "Conta criada!",
-        description: "Bem-vindo ao CutCast! Você já pode começar a usar.",
+        title: "Verifique seu email",
+        description: "Enviamos um link de confirmação para o seu email. Clique nele para ativar sua conta.",
       });
       // Limpa o formulário
       setSignupName("");

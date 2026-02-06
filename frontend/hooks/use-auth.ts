@@ -55,6 +55,7 @@ export function useAuth() {
     });
 
     if (!error) {
+      router.push("/dashboard");
       router.refresh();
     }
 
@@ -64,7 +65,7 @@ export function useAuth() {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (!error) {
-      router.push("/");
+      router.push("/login");
       router.refresh();
     }
     return { error };
