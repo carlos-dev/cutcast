@@ -69,7 +69,10 @@ export function CreditsButton({ userId, onShowDropdownChange }: CreditsButtonPro
   // Atualiza créditos quando o processamento de vídeo é concluído
   useEffect(() => {
     const handleRefreshCredits = () => {
-      getCredits(userId).then(setCredits).catch(console.error);
+      // Delay para garantir que o callback do backend já decrementou os créditos
+      setTimeout(() => {
+        getCredits(userId).then(setCredits).catch(console.error);
+      }, 1500);
     };
     window.addEventListener('refresh-credits', handleRefreshCredits);
     return () => window.removeEventListener('refresh-credits', handleRefreshCredits);

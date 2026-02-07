@@ -24,6 +24,15 @@ export default function HistoryPage() {
   // Pega o jobId da URL se existir (para expandir automaticamente)
   const justCompletedJobId = searchParams.get("completed");
 
+  // Atualiza créditos quando chega de um processamento concluído
+  useEffect(() => {
+    if (justCompletedJobId) {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('refresh-credits'));
+      }, 500);
+    }
+  }, [justCompletedJobId]);
+
   // Redireciona para landing se não estiver logado
   useEffect(() => {
     if (!authLoading && !user) {
