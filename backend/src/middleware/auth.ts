@@ -43,16 +43,43 @@ export async function requireAuth(
 
     // Garante que o usuário existe na tabela users
     // Se não existir, cria automaticamente
-    await prisma.user.upsert({
-      where: { id: user.id },
-      update: {
-        email: user.email || '',
-      },
-      create: {
-        id: user.id,
-        email: user.email || '',
-      },
-    });
+    const existingUser = await prisma.user.findUnique({ where: { id: user.id } });
+
+    if (!existingUser) {
+      const email = user.email || '';
+
+      // Verifica se o e-mail já usou o trial antes (proteção contra abuso)
+      const alreadyUsedTrial = await prisma.trialUsage.findUnique({ where: { email } });
+      const initialCredits = alreadyUsedTrial ? 0 : 3;
+
+      await prisma.user.create({
+        data: {
+          id: user.id,
+          email,
+          credits: initialCredits,
+        },
+      });
+
+      // Registra o uso do trial (se ainda não existia)
+      if (!alreadyUsedTrial) {
+        await prisma.trialUsage.create({
+          data: {
+            email,
+            ipAddress: request.ip,
+          },
+        });
+      }
+
+      request.log.info(`Novo usuário criado: ${email} | Créditos: ${initialCredits}${alreadyUsedTrial ? ' (trial já usado)' : ''}`);
+    } else {
+      // Atualiza e-mail se necessário
+      if (existingUser.email !== (user.email || '')) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { email: user.email || '' },
+        });
+      }
+    }
 
     // Adiciona o userId e userEmail ao request para uso nas rotas
     (request as AuthenticatedRequest).userId = user.id;

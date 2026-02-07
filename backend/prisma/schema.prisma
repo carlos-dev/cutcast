@@ -59,11 +59,20 @@ model Callback {
   jobId        String
   status       String
   outputUrls   String?
-  results      Json? 
+  results      Json?
   errorMessage String?
   receivedAt   DateTime @default(now())
 
   job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@map("callbacks")
+}
+
+model TrialUsage {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  usedAt    DateTime @default(now())
+  ipAddress String?
+
+  @@map("trial_usage")
 }
