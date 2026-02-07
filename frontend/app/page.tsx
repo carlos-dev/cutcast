@@ -135,9 +135,9 @@ export default function LandingPage() {
             className="text-center mb-16"
           >
             <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-              Transforme Vídeos Longos em{' '}
+              Transforme vídeos longos em{' '}
               <span className="bg-gradient-to-r from-primary to-indigo-400 bg-clip-text text-transparent">
-                Cortes Virais com IA
+                cortes virais com IA
               </span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 leading-relaxed">
