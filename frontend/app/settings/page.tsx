@@ -11,9 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -38,6 +38,8 @@ export default function SettingsPage() {
     if (typeof window === "undefined") return true;
     return localStorage.getItem("defaultSubtitles") !== "false";
   });
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const handleSubtitlesChange = (checked: boolean) => {
     setSubtitlesEnabled(checked);
@@ -262,7 +264,10 @@ export default function SettingsPage() {
                     Esta ação não pode ser desfeita.
                   </p>
                 </div>
-                <AlertDialog>
+                <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+                  setDeleteDialogOpen(open);
+                  if (!open) setDeleteConfirmText("");
+                }}>
                   <AlertDialogTrigger asChild>
                     <Button
                       variant="destructive"
@@ -280,20 +285,49 @@ export default function SettingsPage() {
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Esta ação é irreversível. Todos os seus dados serão permanentemente
-                        deletados, incluindo vídeos, histórico e créditos. Você precisará
-                        criar uma nova conta para usar o CutCast novamente.
+                      <AlertDialogDescription asChild>
+                        <div className="space-y-3">
+                          <p>
+                            Esta ação é irreversível. Todos os seus dados serão permanentemente
+                            deletados, incluindo vídeos, histórico e créditos.
+                          </p>
+                          {(profile?.credits ?? 0) > 0 && (
+                            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/30">
+                              <p className="text-sm font-semibold text-destructive flex items-center gap-2">
+                                <AlertTriangle className="h-4 w-4" />
+                                Você possui {profile?.credits} crédito{(profile?.credits ?? 0) !== 1 ? "s" : ""} na conta
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Ao excluir, você perderá esse saldo permanentemente. Não há reembolso.
+                              </p>
+                            </div>
+                          )}
+                          <div className="space-y-2 pt-1">
+                            <p className="text-sm">
+                              Digite <span className="font-mono font-bold">DELETAR</span> para confirmar:
+                            </p>
+                            <Input
+                              value={deleteConfirmText}
+                              onChange={(e) => setDeleteConfirmText(e.target.value)}
+                              placeholder="DELETAR"
+                              className="font-mono"
+                            />
+                          </div>
+                        </div>
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction
+                      <Button
+                        variant="destructive"
+                        disabled={deleteConfirmText !== "DELETAR" || deleteMutation.isPending}
                         onClick={() => deleteMutation.mutate()}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
+                        {deleteMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : null}
                         Sim, deletar minha conta
-                      </AlertDialogAction>
+                      </Button>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
