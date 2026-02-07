@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Sparkles, LogIn, UserPlus, Video } from "lucide-react";
+import { Loader2, LogIn, UserPlus, Video } from "lucide-react";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -117,23 +118,7 @@ export default function LoginPage() {
           >
             {/* Logo & Title */}
             <div className="text-center space-y-4">
-              <motion.div
-                className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-accent shadow-xl mb-4"
-                animate={{
-                  y: [0, -8, 0],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              >
-                <Video className="w-10 h-10 text-white" />
-              </motion.div>
-
-              <h1 className="text-4xl font-bold">
-                <span className="text-primary drop-shadow-[0_0_8px_hsl(270_100%_70%)]">CutCast</span>
-              </h1>
+              <Image src="/logo-full.png" alt="CutCast" width={160} height={48} className="mx-auto mb-4" />
               <p className="text-lg text-muted-foreground">
                 Transforme vídeos longos em clipes virais com IA
               </p>
@@ -252,16 +237,8 @@ export default function LoginPage() {
           className="w-full max-w-md space-y-8"
         >
           {/* Mobile Logo (Shown only on mobile) */}
-          <div className="lg:hidden text-center space-y-2">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-4"
-            >
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">CutCast</span>
-            </motion.div>
+          <div className="lg:hidden text-center">
+            <Image src="/logo-full.png" alt="CutCast" width={120} height={36} className="mx-auto mb-4" />
           </div>
 
           <Card className="card-glow border-2">
