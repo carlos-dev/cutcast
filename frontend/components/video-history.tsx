@@ -260,21 +260,6 @@ function JobCard({ job, index, justCompletedJobId }: JobCardProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
-          {/* URL do vídeo original */}
-          {job.inputUrl && (
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-muted-foreground">Vídeo Original:</p>
-              <a
-                href={job.inputUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-primary hover:underline truncate block"
-              >
-                {job.inputUrl}
-              </a>
-            </div>
-          )}
-
           {/* Mensagem de erro */}
           {job.status === "FAILED" && job.errorMessage && (
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
