@@ -376,15 +376,15 @@ export default function Dashboard() {
           <div className="grid grid-cols-3 gap-4">
             <Card className="p-4 text-center">
               <p className="text-2xl font-bold text-primary">{stats.totalProcessed}</p>
-              <p className="text-sm text-muted-foreground">Vídeos Processados</p>
+              <p className="text-sm text-muted-foreground">Vídeos processados</p>
             </Card>
             <Card className="p-4 text-center">
               <p className="text-2xl font-bold text-primary">{stats.totalClips}</p>
-              <p className="text-sm text-muted-foreground">Clipes Gerados</p>
+              <p className="text-sm text-muted-foreground">clipes gerados</p>
             </Card>
             <Card className="p-4 text-center">
               <p className="text-2xl font-bold text-primary">{stats.inProgress}</p>
-              <p className="text-sm text-muted-foreground">Em Processamento</p>
+              <p className="text-sm text-muted-foreground">Em processamento</p>
             </Card>
           </div>
         </motion.div>
