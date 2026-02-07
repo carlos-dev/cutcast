@@ -103,8 +103,8 @@ export async function paymentRoutes(
           userId: user.id,
           credits: quantity.toString()
         },
-        success_url: `${FRONTEND_URL}/?success=true`,
-        cancel_url: `${FRONTEND_URL}/?canceled=true`
+        success_url: `${FRONTEND_URL}/dashboard/?success=true`,
+        cancel_url: `${FRONTEND_URL}/dashboard/?canceled=true`
       });
 
       return reply.send({
