@@ -15,7 +15,7 @@ const PRICING_BRL: Record<number, number> = {
 const DEFAULT_PRICE_PER_CREDIT_BRL = 250; // R$ 2,50 por crédito (fallback)
 
 // URL do frontend para redirecionamento
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://cutcast.vercel.app';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://cutcast.com.br';
 
 interface CheckoutBody {
   userId: string;

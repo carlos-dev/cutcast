@@ -53,7 +53,18 @@ fastify.register(swaggerUi, {
 
 // Registra CORS para permitir requisições do frontend
 fastify.register(cors, {
-  origin: true, // Permite todas as origens (em produção, especifique os domínios)
+  origin: (origin, cb) => {
+    // Permite requests sem origin (curl, mobile, etc.)
+    if (!origin) return cb(null, true);
+
+    const allowed =
+      origin === 'https://cutcast.com.br' ||
+      origin === 'https://www.cutcast.com.br' ||
+      origin.startsWith('http://localhost') ||
+      (origin.endsWith('.vercel.app') && origin.includes('cutcast'));
+
+    cb(null, allowed);
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
