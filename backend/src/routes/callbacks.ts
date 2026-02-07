@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { JobCallback } from '../types';
 import { prisma } from '../lib/prisma';
 import { jobCallbackSchema } from '../schemas/callbacks.schemas';
+import { sendVideoReadyEmail } from '../lib/mail';
 
 export async function callbacksRoutes(
   fastify: FastifyInstance,
@@ -137,6 +138,25 @@ export async function callbacksRoutes(
       });
 
       fastify.log.info(`Callback recebido para job ${jobId}: ${body.status}`);
+
+      // Envia e-mail de notificação quando o processamento foi bem-sucedido
+      if (body.status === 'completed') {
+        try {
+          const user = await prisma.user.findUnique({
+            where: { id: job.userId },
+            select: { email: true }
+          });
+
+          if (user?.email) {
+            const videoTitle = job.inputUrl.split('/').pop() || 'seu vídeo';
+            const projectUrl = `https://cutcast.com.br/history?completed=${jobId}`;
+            await sendVideoReadyEmail(user.email, videoTitle, projectUrl);
+            fastify.log.info(`E-mail de notificação enviado para ${user.email} (job ${jobId})`);
+          }
+        } catch (emailError) {
+          fastify.log.error(`Erro ao enviar e-mail para job ${jobId}: ${emailError}`);
+        }
+      }
 
       // Retorna sucesso
       return reply.send({

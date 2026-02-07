@@ -30,6 +30,7 @@
     "fastify": "^4.28.1",
     "get-video-duration": "^5.0.0",
     "prisma": "^5.22.0",
+    "resend": "^6.9.1",
     "stripe": "^20.3.0",
     "uuid": "^10.0.0",
     "youtube-dl-exec": "^3.0.29"
