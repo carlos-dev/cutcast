@@ -121,16 +121,16 @@ export function JobStatusCard({ job, streamingProgress, isStreaming }: JobStatus
             </div>
           )}
 
-          {job.status === "FAILED" && job.errorMessage && (
+          {job.status === "FAILED" && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {job.errorMessage}
+              Ocorreu um erro ao processar o vídeo. Por favor, tente novamente.
             </div>
           )}
 
           {/* Erro do streaming */}
-          {streamingProgress?.status === 'error' && streamingProgress.error && (
+          {streamingProgress?.status === 'error' && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              {streamingProgress.error}
+              Ocorreu um erro ao processar o vídeo. Por favor, tente novamente.
             </div>
           )}
         </CardContent>

@@ -98,7 +98,7 @@ fastify.register(registerRoutes);
 const start = async () => {
   try {
     await fastify.ready(); // Garante que todos os plugins estão carregados
-    await fastify.listen({ port: 3000, host: '0.0.0.0' });
+    await fastify.listen({ port: 3001, host: '0.0.0.0' });
     console.log('🚀 Servidor rodando em http://localhost:3000 test');
     console.log('📚 Documentação Swagger em http://localhost:3000/docs');
   } catch (err) {

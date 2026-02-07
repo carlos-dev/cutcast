@@ -261,9 +261,9 @@ function JobCard({ job, index, justCompletedJobId }: JobCardProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           {/* Mensagem de erro */}
-          {job.status === "FAILED" && job.errorMessage && (
+          {job.status === "FAILED" && (
             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-              <p className="text-xs text-destructive">{job.errorMessage}</p>
+              <p className="text-xs text-destructive">Ocorreu um erro ao processar o vídeo. Por favor, tente novamente.</p>
             </div>
           )}
 
