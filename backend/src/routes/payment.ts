@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { prisma } from '../lib/prisma';
+import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 import Stripe from 'stripe';
 
 // Inicializa o Stripe
@@ -191,16 +192,10 @@ export async function paymentRoutes(
   /**
    * GET /payment/credits
    * Retorna o saldo de créditos do usuário
-   * Query: userId
+   * Usa requireAuth para garantir que o user existe no banco (criado no middleware se necessário)
    */
-  fastify.get('/payment/credits', async (request, reply) => {
-    const { userId } = request.query as { userId?: string };
-
-    if (!userId) {
-      return reply.code(400).send({
-        error: 'userId é obrigatório'
-      });
-    }
+  fastify.get('/payment/credits', { preHandler: [requireAuth] }, async (request, reply) => {
+    const userId = (request as AuthenticatedRequest).userId;
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
