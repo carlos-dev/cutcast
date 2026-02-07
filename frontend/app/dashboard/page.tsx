@@ -67,35 +67,25 @@ export default function Dashboard() {
     }
   }, [user, authLoading, router]);
 
-  // Busca créditos do usuário
+  // Configura token e busca créditos (sequencial para evitar race condition)
   useEffect(() => {
-    const fetchCredits = async () => {
-      if (user?.id) {
+    const setup = async () => {
+      if (user) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          setAuthToken(session.access_token);
+        }
         try {
           const credits = await getCredits(user.id);
           setUserCredits(credits);
         } catch (error) {
           console.error("Erro ao buscar créditos:", error);
         }
-      }
-    };
-    fetchCredits();
-  }, [user?.id]);
-
-  // Configura o token de autenticação quando o usuário estiver logado
-  useEffect(() => {
-    const setupAuth = async () => {
-      if (user) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          setAuthToken(session.access_token);
-        }
       } else {
         setAuthToken(null);
       }
     };
-
-    setupAuth();
+    setup();
   }, [user, supabase.auth]);
 
   // Função para iniciar o streaming de progresso

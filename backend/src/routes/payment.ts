@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { prisma } from '../lib/prisma';
-import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
+import { supabase } from '../lib/supabase';
 import Stripe from 'stripe';
 
 // Inicializa o Stripe
@@ -192,24 +192,46 @@ export async function paymentRoutes(
   /**
    * GET /payment/credits
    * Retorna o saldo de créditos do usuário
-   * Usa requireAuth para garantir que o user existe no banco (criado no middleware se necessário)
+   * Se o user não existir no banco, consulta o Supabase para pegar o email e cria com trial check
    */
-  fastify.get('/payment/credits', { preHandler: [requireAuth] }, async (request, reply) => {
-    const userId = (request as AuthenticatedRequest).userId;
+  fastify.get('/payment/credits', async (request, reply) => {
+    const { userId } = request.query as { userId?: string };
 
-    const user = await prisma.user.findUnique({
+    if (!userId) {
+      return reply.code(400).send({ error: 'userId é obrigatório' });
+    }
+
+    let user = await prisma.user.findUnique({
       where: { id: userId },
       select: { credits: true }
     });
 
     if (!user) {
-      return reply.code(404).send({
-        error: 'Usuário não encontrado'
+      // User não existe no banco ainda - busca email no Supabase e cria com trial check
+      const { data: supabaseUser, error } = await supabase.auth.admin.getUserById(userId);
+
+      if (error || !supabaseUser?.user?.email) {
+        return reply.code(404).send({ error: 'Usuário não encontrado' });
+      }
+
+      const email = supabaseUser.user.email;
+      const alreadyUsedTrial = await prisma.trialUsage.findUnique({ where: { email } });
+      const initialCredits = alreadyUsedTrial ? 0 : 3;
+
+      user = await prisma.user.create({
+        data: { id: userId, email, credits: initialCredits },
+        select: { credits: true }
       });
+
+      if (!alreadyUsedTrial) {
+        await prisma.trialUsage.create({
+          data: { email, ipAddress: request.ip },
+        });
+      }
+
+      request.log.info(`Novo usuário criado via /credits: ${email} | Créditos: ${initialCredits}${alreadyUsedTrial ? ' (trial já usado)' : ''}`);
     }
 
-    return reply.send({
-      credits: user.credits
-    });
+    return reply.send({ credits: user.credits });
   });
 }
