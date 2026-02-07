@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM_EMAIL = 'CutCast <suporte@send.cutcast.com.br>';
+const FROM_EMAIL = 'CutCast <suporte@cutcast.com.br>';
 
 export async function sendVideoReadyEmail(
   userEmail: string,
