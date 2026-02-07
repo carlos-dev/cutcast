@@ -370,7 +370,7 @@ export default function Dashboard() {
             </Card>
             <Card className="p-4 text-center">
               <p className="text-2xl font-bold text-primary">{stats.totalClips}</p>
-              <p className="text-sm text-muted-foreground">clipes gerados</p>
+              <p className="text-sm text-muted-foreground">cortes gerados</p>
             </Card>
             <Card className="p-4 text-center">
               <p className="text-2xl font-bold text-primary">{stats.inProgress}</p>
