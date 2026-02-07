@@ -78,6 +78,18 @@ export async function usersRoutes(fastify: FastifyInstance) {
           });
         }
 
+        // 0. Garante que o email está registrado na TrialUsage antes de deletar
+        const existingTrial = await prisma.trialUsage.findUnique({
+          where: { email: user.email },
+        });
+
+        if (!existingTrial) {
+          await prisma.trialUsage.create({
+            data: { email: user.email },
+          });
+          request.log.info(`TrialUsage criado para ${user.email} antes da exclusão`);
+        }
+
         // 1. Busca todos os jobs do usuário para deletar arquivos do R2
         const jobs = await prisma.job.findMany({
           where: { userId },
